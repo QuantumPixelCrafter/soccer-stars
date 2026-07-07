@@ -1,22 +1,26 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Gacha Card Game API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: inventory
+    description: Player inventory operations
+  - name: shop
+    description: Shop and pack operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +28,346 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthInput"
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Username already taken
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Log in to an existing account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Log out (invalidate session token)
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /auth/daily-claim:
+    post:
+      operationId: dailyClaim
+      tags: [auth]
+      summary: Claim daily coin reward (200 coins, once per day)
+      responses:
+        "200":
+          description: Coins awarded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyReward"
+        "400":
+          description: Already claimed today
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /inventory/balance:
+    get:
+      operationId: getBalance
+      tags: [inventory]
+      summary: Get current coin balance
+      responses:
+        "200":
+          description: Balance retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceResponse"
+
+  /inventory/players:
+    get:
+      operationId: getPlayers
+      tags: [inventory]
+      summary: List all owned player cards with stats
+      responses:
+        "200":
+          description: Player list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlayerCard"
+
+  /inventory/summary:
+    get:
+      operationId: getInventorySummary
+      tags: [inventory]
+      summary: Summary of coins and card counts
+      responses:
+        "200":
+          description: Summary retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventorySummary"
+
+  /shop/packs:
+    get:
+      operationId: getPacks
+      tags: [shop]
+      summary: List available packs with costs and contents
+      responses:
+        "200":
+          description: Pack list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Pack"
+
+  /shop/buy:
+    post:
+      operationId: buyPack
+      tags: [shop]
+      summary: Purchase a pack and receive random players
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BuyPackInput"
+      responses:
+        "200":
+          description: Pack opened successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackOpenResult"
+        "400":
+          description: Insufficient coins or invalid pack
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /shop/nerf-preview:
+    get:
+      operationId: getNerfPreview
+      tags: [shop]
+      summary: Preview effective stats when applying Universal Nerf Rule
+      parameters:
+        - name: playerId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: usedAsRole
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [shooter, goalkeeper]
+      responses:
+        "200":
+          description: Nerf preview stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NerfPreview"
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
 
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    SuccessResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+
+    AuthInput:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+        password:
+          type: string
+          minLength: 6
+
+    AuthResponse:
+      type: object
+      required: [token, username, coins]
+      properties:
+        token:
+          type: string
+        username:
+          type: string
+        coins:
+          type: integer
+
+    DailyReward:
+      type: object
+      required: [coins, awarded]
+      properties:
+        coins:
+          type: integer
+        awarded:
+          type: integer
+
+    BalanceResponse:
+      type: object
+      required: [coins]
+      properties:
+        coins:
+          type: integer
+
+    PlayerCard:
+      type: object
+      required: [id, name, position, club, is_gk, acquired_at]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        position:
+          type: string
+        club:
+          type: string
+        is_gk:
+          type: boolean
+        fk:
+          type: ["number", "null"]
+        pk:
+          type: ["number", "null"]
+        fks:
+          type: ["number", "null"]
+        pks:
+          type: ["number", "null"]
+        acquired_at:
+          type: string
+
+    InventorySummary:
+      type: object
+      required: [coins, total_cards, shooter_count, gk_count]
+      properties:
+        coins:
+          type: integer
+        total_cards:
+          type: integer
+        shooter_count:
+          type: integer
+        gk_count:
+          type: integer
+
+    Pack:
+      type: object
+      required: [id, name, description, cost, card_count]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        cost:
+          type: integer
+        card_count:
+          type: integer
+
+    BuyPackInput:
+      type: object
+      required: [packType]
+      properties:
+        packType:
+          type: string
+
+    PackOpenResult:
+      type: object
+      required: [players, remaining_coins]
+      properties:
+        players:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlayerCard"
+        remaining_coins:
+          type: integer
+
+    NerfPreview:
+      type: object
+      required: [player_id, name, original_role, used_as_role, effective_fk, effective_pk]
+      properties:
+        player_id:
+          type: integer
+        name:
+          type: string
+        original_role:
+          type: string
+        used_as_role:
+          type: string
+        effective_fk:
+          type: ["number", "null"]
+        effective_pk:
+          type: ["number", "null"]

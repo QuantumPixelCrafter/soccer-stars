@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface InventorySummary {
+  coins: number;
+  total_cards: number;
+  shooter_count: number;
+  gk_count: number;
 }

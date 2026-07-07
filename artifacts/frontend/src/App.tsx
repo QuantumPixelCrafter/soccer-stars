@@ -1,0 +1,79 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from '@/components/ui/toaster';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import NotFound from '@/pages/not-found';
+import { Route, Switch, Router as WouterRouter, Redirect } from 'wouter';
+
+import { Layout } from '@/components/layout';
+import { ProtectedRoute } from '@/components/protected-route';
+import Login from '@/pages/login';
+import Dashboard from '@/pages/dashboard';
+import Collection from '@/pages/collection';
+import Shop from '@/pages/shop';
+
+import { getToken } from '@/lib/auth';
+
+const queryClient = new QueryClient();
+
+function Router() {
+  return (
+    <Switch>
+      <Route path="/">
+        {() => (
+          <Redirect to={getToken() ? "/dashboard" : "/login"} />
+        )}
+      </Route>
+      
+      <Route path="/login">
+        <Layout>
+          <Login />
+        </Layout>
+      </Route>
+
+      <Route path="/dashboard">
+        <ProtectedRoute>
+          <Layout>
+            <Dashboard />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/collection">
+        <ProtectedRoute>
+          <Layout>
+            <Collection />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/shop">
+        <ProtectedRoute>
+          <Layout>
+            <Shop />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route>
+        <Layout>
+          <NotFound />
+        </Layout>
+      </Route>
+    </Switch>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+          <Router />
+        </WouterRouter>
+        <Toaster />
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
+
+export default App;
