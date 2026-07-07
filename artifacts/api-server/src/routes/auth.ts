@@ -153,7 +153,7 @@ router.post("/login", (req, res) => {
 /**
  * Claim the daily +200 coin login bonus.
  * Requires: Authorization: Bearer <token>
- * Returns: { coins, bonusAwarded, nextClaimAt }
+ * Returns: { coins, awarded, nextClaimAt }
  */
 router.post("/daily-claim", requireAuth, (req: AuthRequest, res) => {
   const userId = req.userId!;
@@ -195,10 +195,10 @@ router.post("/daily-claim", requireAuth, (req: AuthRequest, res) => {
   tomorrow.setUTCHours(0, 0, 0, 0);
 
   res.json({
-    bonusAwarded: 200,
-    coins:        newCoins,
-    nextClaimAt:  tomorrow.toISOString(),
-    message:      "+200 daily login bonus claimed!",
+    awarded: 200,
+    coins:   newCoins,
+    nextClaimAt: tomorrow.toISOString(),
+    message: "+200 daily login bonus claimed!",
   });
 });
 
