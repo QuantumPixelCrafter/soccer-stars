@@ -12,209 +12,162 @@ router.use(requireAuth);
 // ─── Pack definitions ─────────────────────────────────────────────────────────
 
 const PACK_CONFIG = {
-  random_1:   { count: 1, cost: 500,  pool: "mixed",    label: "Random Pack (1 Card)" },
-  random_3:   { count: 3, cost: 1200, pool: "mixed",    label: "Random Pack (3 Cards)" },
-  shooter_1:  { count: 1, cost: 700,  pool: "shooter",  label: "Shooter Pack (1 Card)" },
-  shooter_3:  { count: 3, cost: 1800, pool: "shooter",  label: "Shooter Pack (3 Cards)" },
-  gk_1:       { count: 1, cost: 700,  pool: "gk",       label: "GK Pack (1 Card)" },
-  gk_3:       { count: 3, cost: 1800, pool: "gk",       label: "GK Pack (3 Cards)" },
+  random_1:  { count: 1, cost: 500,  pool: "mixed",   label: "Random Pack (1 Card)",  desc: "One surprise Gold Card from the full pool." },
+  random_3:  { count: 3, cost: 1200, pool: "mixed",   label: "Random Pack (3 Cards)", desc: "Three surprise Gold Cards from the full pool." },
+  shooter_1: { count: 1, cost: 700,  pool: "shooter", label: "Striker Pack (1 Card)", desc: "One shooter guaranteed — no GKs." },
+  shooter_3: { count: 3, cost: 1800, pool: "shooter", label: "Striker Pack (3 Cards)",desc: "Three shooters guaranteed." },
+  gk_1:      { count: 1, cost: 700,  pool: "gk",      label: "GK Pack (1 Card)",      desc: "One elite goalkeeper." },
+  gk_3:      { count: 3, cost: 1800, pool: "gk",      label: "GK Pack (3 Cards)",     desc: "Three elite goalkeepers." },
 } as const;
 
 type PackType = keyof typeof PACK_CONFIG;
 
 // ─── GET /api/shop/packs ──────────────────────────────────────────────────────
-
-/**
- * List all available pack types with prices.
- */
 router.get("/packs", (_req, res) => {
   const packs = Object.entries(PACK_CONFIG).map(([id, cfg]) => ({
-    packId:     id,
-    label:      cfg.label,
-    cardCount:  cfg.count,
-    cost:       cfg.cost,
-    pool:       cfg.pool,
-    currency:   "coins",
+    id,
+    name:        cfg.label,
+    description: cfg.desc,
+    cost:        cfg.cost,
+    card_count:  cfg.count,
   }));
-  res.json({ packs });
+  res.json(packs);
 });
 
 // ─── POST /api/shop/buy ───────────────────────────────────────────────────────
-
-/**
- * Purchase a gacha pack.
- * Body: { packType: "random_1" | "random_3" | "shooter_1" | "shooter_3" | "gk_1" | "gk_3" }
- * Requires: Authorization: Bearer <token>
- *
- * Atomically:
- *   1. Verify the user has enough coins.
- *   2. Deduct the cost.
- *   3. Draw random cards from the appropriate pool.
- *   4. Insert drawn cards into user_inventory.
- *   5. Emit a real-time event to the user's socket room.
- *
- * Returns: { coinsSpent, coinsRemaining, cards: [...] }
- */
 router.post("/buy", (req: AuthRequest, res) => {
-  const userId   = req.userId!;
+  const userId = req.userId!;
   const { packType } = req.body as { packType?: string };
 
   if (!packType || !(packType in PACK_CONFIG)) {
-    res.status(400).json({
-      error:           "Invalid packType",
-      validPackTypes:  Object.keys(PACK_CONFIG),
-    });
+    res.status(400).json({ error: "Invalid packType", validPackTypes: Object.keys(PACK_CONFIG) });
     return;
   }
 
   const pack = PACK_CONFIG[packType as PackType];
 
-  // ── Fetch eligible player pool ──────────────────────────────────────────────
+  // Fetch eligible pool (Gold Cards only — is_bench_pool=0)
   let poolQuery: string;
   if (pack.pool === "shooter") {
-    poolQuery = "SELECT * FROM players_base WHERE is_gk = 0";
+    poolQuery = "SELECT * FROM players_base WHERE is_gk=0 AND is_bench_pool=0";
   } else if (pack.pool === "gk") {
-    poolQuery = "SELECT * FROM players_base WHERE is_gk = 1";
+    poolQuery = "SELECT * FROM players_base WHERE is_gk=1 AND is_bench_pool=0";
   } else {
-    poolQuery = "SELECT * FROM players_base";
+    poolQuery = "SELECT * FROM players_base WHERE is_bench_pool=0";
   }
 
   const pool = db.prepare(poolQuery).all() as PlayerBaseRow[];
-
   if (pool.length === 0) {
     res.status(500).json({ error: "Card pool is empty — run the seed script" });
     return;
   }
 
-  // ── Atomic transaction ──────────────────────────────────────────────────────
   const buyTx = db.transaction(() => {
-    const user = db
-      .prepare("SELECT coins FROM users WHERE id = ?")
-      .get(userId) as { coins: number } | undefined;
-
+    const user = db.prepare("SELECT coins FROM users WHERE id=?").get(userId) as { coins: number } | undefined;
     if (!user) throw new Error("USER_NOT_FOUND");
+    if (user.coins < pack.cost) throw new Error(`INSUFFICIENT_COINS:${user.coins}:${pack.cost}`);
 
-    if (user.coins < pack.cost) {
-      throw new Error(`INSUFFICIENT_COINS:${user.coins}:${pack.cost}`);
-    }
+    // Snapshot which player_ids user already owns (to detect duplicates)
+    const preOwnedIds = new Set(
+      (db.prepare("SELECT player_id FROM user_inventory WHERE user_id=?").all(userId) as Array<{ player_id: number }>)
+        .map((r) => r.player_id),
+    );
 
     const newCoins = user.coins - pack.cost;
-    db.prepare("UPDATE users SET coins = ? WHERE id = ?").run(newCoins, userId);
+    db.prepare("UPDATE users SET coins=? WHERE id=?").run(newCoins, userId);
 
-    // Draw cards
     const drawn = pickRandomN(pool, pack.count);
+    const insertInv = db.prepare("INSERT INTO user_inventory (user_id, player_id) VALUES (?,?)");
+    const duplicateInventoryIds: number[] = [];
 
-    const insertInventory = db.prepare(
-      "INSERT INTO user_inventory (user_id, player_id) VALUES (?, ?)",
-    );
     for (const card of drawn) {
-      insertInventory.run(userId, card.id);
+      const result = insertInv.run(userId, card.id);
+      const inventoryId = result.lastInsertRowid as number;
+      if (preOwnedIds.has(card.id)) {
+        duplicateInventoryIds.push(inventoryId);
+      }
     }
 
-    return { newCoins, drawn };
+    return { newCoins, drawn, duplicateInventoryIds };
   });
 
   try {
-    const { newCoins, drawn } = buyTx();
+    const { newCoins, drawn, duplicateInventoryIds } = buyTx();
 
-    const cards = drawn.map((c) => ({
-      playerId:  c.id,
-      name:      c.name,
-      initials:  c.initials,
-      position:  c.position,
-      country:   c.country,
-      club:      c.club,
-      isGK:      c.is_gk === 1,
-      fk:        c.fk,
-      pk:        c.pk,
-      fks:       c.fks,
-      pks:       c.pks,
+    // Fetch the full inventory records for the drawn cards (with inventory_id)
+    const inventoryRows = db
+      .prepare(`
+        SELECT ui.id AS inventory_id, pb.*, ui.is_listed, ui.acquired_at
+        FROM user_inventory ui
+        JOIN players_base pb ON ui.player_id=pb.id
+        WHERE ui.user_id=? AND ui.acquired_at >= datetime('now', '-5 seconds')
+        ORDER BY ui.id DESC LIMIT ?
+      `)
+      .all(userId, pack.count) as Array<PlayerBaseRow & { inventory_id: number; is_listed: number; acquired_at: string }>;
+
+    const players = inventoryRows.reverse().map((r) => ({
+      id:                r.id,
+      inventory_id:      r.inventory_id,
+      name:              r.name,
+      initials:          r.initials,
+      position:          r.position,
+      country:           r.country,
+      club:              r.club,
+      is_gk:             !!r.is_gk,
+      fk:                r.fk,
+      pk:                r.pk,
+      fks:               r.fks,
+      pks:               r.pks,
+      overall:           r.overall,
+      tactical_position: r.tactical_position,
+      is_bench_pool:     !!(r as unknown as { is_bench_pool: number }).is_bench_pool,
+      is_listed:         !!r.is_listed,
+      acquired_at:       r.acquired_at,
     }));
 
-    // Real-time notification to the user
+    emitToUser(userId, "coins:updated", { coins: newCoins, reason: "pack_purchase" });
     emitToUser(userId, "pack:opened", {
       packType,
-      coinsSpent:      pack.cost,
-      coinsRemaining:  newCoins,
-      cards,
-    });
-    emitToUser(userId, "coins:updated", {
-      coins:  newCoins,
-      reason: "pack_purchase",
+      coinsSpent: pack.cost,
+      coinsRemaining: newCoins,
+      cards: players,
     });
 
-    res.json({
-      packType,
-      packLabel:       pack.label,
-      coinsSpent:      pack.cost,
-      coinsRemaining:  newCoins,
-      cardsReceived:   cards.length,
-      cards,
-    });
+    res.json({ players, remaining_coins: newCoins, duplicate_inventory_ids: duplicateInventoryIds });
   } catch (err: unknown) {
-    if (err instanceof Error) {
-      if (err.message === "USER_NOT_FOUND") {
-        res.status(404).json({ error: "User not found" });
-        return;
-      }
-      if (err.message.startsWith("INSUFFICIENT_COINS")) {
-        const [, have, need] = err.message.split(":");
-        res.status(402).json({
-          error:      "Not enough coins",
-          coinsHave:  Number(have),
-          coinsNeed:  Number(need),
-          shortfall:  Number(need) - Number(have),
-        });
-        return;
-      }
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    if (msg.startsWith("INSUFFICIENT_COINS")) {
+      const [, have, need] = msg.split(":");
+      res.status(422).json({ error: `Not enough coins. You have ${have}, pack costs ${need}.` });
+    } else if (msg === "USER_NOT_FOUND") {
+      res.status(404).json({ error: "User not found" });
+    } else {
+      throw err;
     }
-    throw err;
   }
 });
 
 // ─── GET /api/shop/nerf-preview ───────────────────────────────────────────────
-
-/**
- * Preview the Universal Nerf Rule for a given player.
- * Query param: ?playerId=<id>
- *
- * Returns effective shooting stats for any player after nerf is applied.
- * Useful for clients to show "equipped GK as shooter" warnings.
- */
 router.get("/nerf-preview", (req: AuthRequest, res) => {
   const playerId = parseInt(String(req.query["playerId"]), 10);
-
   if (!playerId || isNaN(playerId)) {
     res.status(400).json({ error: "playerId query param is required" });
     return;
   }
 
-  const player = db
-    .prepare("SELECT * FROM players_base WHERE id = ?")
-    .get(playerId) as PlayerBaseRow | undefined;
-
+  const player = db.prepare("SELECT * FROM players_base WHERE id=?").get(playerId) as PlayerBaseRow | undefined;
   if (!player) {
     res.status(404).json({ error: "Player not found" });
     return;
   }
 
-  // Import lazily to avoid circular issues
   import("../lib/gameUtils.js").then(({ applyNerfRule }) => {
     const effective = applyNerfRule(player);
     res.json({
-      player: {
-        id:       player.id,
-        name:     player.name,
-        isGK:     player.is_gk === 1,
-        rawStats: {
-          fk: player.fk, pk: player.pk, fks: player.fks, pks: player.pks,
-        },
-      },
+      player: { id: player.id, name: player.name, isGK: player.is_gk === 1, rawStats: { fk: player.fk, pk: player.pk, fks: player.fks, pks: player.pks } },
       effectiveShooterStats: effective,
     });
-  }).catch(() => {
-    res.status(500).json({ error: "Internal error applying nerf rule" });
-  });
+  }).catch(() => res.status(500).json({ error: "Internal error" }));
 });
 
 export default router;

@@ -5,7 +5,10 @@ import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { getGetInventorySummaryQueryKey, getGetBalanceQueryKey } from "@workspace/api-client-react";
 import { motion } from "framer-motion";
-import { Coins, Layers, PackageOpen, Target, Shield, ArrowRight, Gift } from "lucide-react";
+import {
+  Coins, Layers, PackageOpen, Target, Shield, ArrowRight,
+  Gift, Users, ShoppingBag,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function Dashboard() {
@@ -31,7 +34,7 @@ export default function Dashboard() {
           title: "Claim Failed",
           description: (error.data as { error?: string })?.error || "You might have already claimed today.",
         });
-      }
+      },
     });
   };
 
@@ -49,96 +52,138 @@ export default function Dashboard() {
   }
 
   const stats = [
-    { label: "Total Coins", value: summary?.coins ?? 0, icon: Coins, color: "text-primary", bg: "bg-primary/10" },
-    { label: "Cards Owned", value: summary?.total_cards ?? 0, icon: Layers, color: "text-blue-500", bg: "bg-blue-500/10" },
-    { label: "Shooters", value: summary?.shooter_count ?? 0, icon: Target, color: "text-red-500", bg: "bg-red-500/10" },
-    { label: "Goalkeepers", value: summary?.gk_count ?? 0, icon: Shield, color: "text-secondary", bg: "bg-secondary/10" },
+    { label: "Coins",       value: (summary?.coins ?? 0).toLocaleString(), icon: Coins,  color: "text-yellow-400",  bg: "bg-yellow-500/10" },
+    { label: "Total Cards", value: summary?.total_cards ?? 0,               icon: Layers, color: "text-blue-400",   bg: "bg-blue-500/10"   },
+    { label: "Shooters",    value: summary?.shooters ?? 0,                  icon: Target, color: "text-green-400",  bg: "bg-green-500/10"  },
+    { label: "Goalkeepers", value: summary?.goalkeepers ?? 0,               icon: Shield, color: "text-purple-400", bg: "bg-purple-500/10" },
   ];
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-4xl font-bold tracking-tight mb-2">Club Headquarters</h1>
-          <p className="text-muted-foreground text-lg">Manage your squad and resources.</p>
-        </div>
-        
-        <Button 
-          onClick={handleClaim} 
-          disabled={claimMutation.isPending}
-          size="lg"
-          className="bg-card hover:bg-card/80 border border-primary/30 text-primary hover:text-primary transition-all shadow-[0_0_20px_rgba(255,170,0,0.1)] hover:shadow-[0_0_30px_rgba(255,170,0,0.3)]"
-        >
-          <Gift className="w-5 h-5 mr-2" />
-          Claim Daily Reward
-        </Button>
+      <div>
+        <h1 className="text-4xl font-bold tracking-tight mb-2">Dashboard</h1>
+        <p className="text-muted-foreground text-lg">Welcome back, manager.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat, i) => (
           <motion.div
             key={stat.label}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1, duration: 0.4 }}
-            className="bg-card border border-border rounded-xl p-6 relative overflow-hidden group"
+            transition={{ delay: i * 0.08 }}
+            className={`p-5 rounded-2xl border border-border bg-card flex flex-col gap-3`}
           >
-            <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full ${stat.bg} blur-2xl group-hover:bg-opacity-20 transition-all`} />
-            <div className="relative z-10 flex items-center justify-between">
-              <div>
-                <p className="text-muted-foreground font-medium mb-1">{stat.label}</p>
-                <p className="text-4xl font-bold font-mono tracking-tight">{stat.value}</p>
-              </div>
-              <div className={`w-12 h-12 rounded-xl ${stat.bg} flex items-center justify-center ${stat.color}`}>
-                <stat.icon size={24} />
-              </div>
+            <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center`}>
+              <stat.icon size={20} className={stat.color} />
+            </div>
+            <div>
+              <div className={`text-2xl font-black ${stat.color}`}>{stat.value}</div>
+              <div className="text-sm text-muted-foreground">{stat.label}</div>
             </div>
           </motion.div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.4 }}
-          className="bg-gradient-to-br from-card to-card/50 border border-border rounded-2xl p-8 flex flex-col items-start relative overflow-hidden group"
+      {/* Daily claim */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35 }}
+        className="flex items-center justify-between p-5 rounded-2xl border border-yellow-500/30 bg-yellow-500/5"
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-yellow-500/20 flex items-center justify-center">
+            <Gift size={20} className="text-yellow-400" />
+          </div>
+          <div>
+            <div className="font-bold">Daily Reward</div>
+            <div className="text-sm text-muted-foreground">Claim +200 coins once per day</div>
+          </div>
+        </div>
+        <Button
+          onClick={handleClaim}
+          disabled={claimMutation.isPending}
+          className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold"
         >
-          <div className="absolute right-0 bottom-0 opacity-10 group-hover:opacity-20 transition-opacity translate-x-1/4 translate-y-1/4">
-            <PackageOpen size={200} className="text-primary" />
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-primary/20 text-primary flex items-center justify-center mb-6">
-            <PackageOpen size={24} />
-          </div>
-          <h2 className="text-2xl font-bold mb-2">Hit the Shop</h2>
-          <p className="text-muted-foreground mb-8 max-w-sm">
-            Spend your hard-earned coins on packs. High risk, high reward.
-          </p>
-          <Button onClick={() => setLocation("/shop")} className="mt-auto font-bold gap-2">
-            Buy Packs <ArrowRight size={16} />
-          </Button>
-        </motion.div>
+          {claimMutation.isPending ? "Claiming…" : "Claim 🪙"}
+        </Button>
+      </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.5 }}
-          className="bg-gradient-to-br from-card to-card/50 border border-border rounded-2xl p-8 flex flex-col items-start relative overflow-hidden group"
-        >
-          <div className="absolute right-0 bottom-0 opacity-10 group-hover:opacity-20 transition-opacity translate-x-1/4 translate-y-1/4">
-            <Layers size={200} className="text-blue-500" />
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-blue-500/20 text-blue-500 flex items-center justify-center mb-6">
-            <Layers size={24} />
-          </div>
-          <h2 className="text-2xl font-bold mb-2">View Collection</h2>
-          <p className="text-muted-foreground mb-8 max-w-sm">
-            Examine your players, check their stats, and plan your ultimate squad.
-          </p>
-          <Button variant="secondary" onClick={() => setLocation("/collection")} className="mt-auto font-bold gap-2">
-            Browse Cards <ArrowRight size={16} />
-          </Button>
-        </motion.div>
+      {/* Quick nav cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {[
+          {
+            title:   "My Squad",
+            desc:    "Build and manage your 4-3-3 starting eleven. Track Team OVR.",
+            icon:    Users,
+            color:   "text-emerald-400",
+            bg:      "bg-emerald-500/10",
+            href:    "/squad",
+            cta:     "Manage Squad",
+          },
+          {
+            title:   "Daily Objective",
+            desc:    "Today's formation challenge. Build a squad, earn rewards.",
+            icon:    Target,
+            color:   "text-orange-400",
+            bg:      "bg-orange-500/10",
+            href:    "/daily-objective",
+            cta:     "View Objective",
+          },
+          {
+            title:   "Transfer Market",
+            desc:    "Buy and sell players globally. Real-time bidding with coin escrow.",
+            icon:    ShoppingBag,
+            color:   "text-cyan-400",
+            bg:      "bg-cyan-500/10",
+            href:    "/market",
+            cta:     "Open Market",
+          },
+          {
+            title:   "Pack Shop",
+            desc:    "Spend coins on packs. Pull Gold Cards. High risk, high reward.",
+            icon:    PackageOpen,
+            color:   "text-yellow-400",
+            bg:      "bg-yellow-500/10",
+            href:    "/shop",
+            cta:     "Buy Packs",
+          },
+          {
+            title:   "Collection",
+            desc:    "Browse all your player cards. Quick-sell duplicates for coins.",
+            icon:    Layers,
+            color:   "text-blue-400",
+            bg:      "bg-blue-500/10",
+            href:    "/collection",
+            cta:     "View Cards",
+          },
+        ].map((card, i) => (
+          <motion.div
+            key={card.href}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.4 + i * 0.07 }}
+            className="bg-card border border-border rounded-2xl p-6 flex flex-col relative overflow-hidden group"
+          >
+            <div className={`absolute right-0 bottom-0 translate-x-1/4 translate-y-1/4 opacity-5 group-hover:opacity-10 transition-opacity`}>
+              <card.icon size={140} />
+            </div>
+            <div className={`w-11 h-11 rounded-xl ${card.bg} flex items-center justify-center mb-4`}>
+              <card.icon size={22} className={card.color} />
+            </div>
+            <h2 className="text-xl font-bold mb-1">{card.title}</h2>
+            <p className="text-muted-foreground text-sm mb-5 flex-1">{card.desc}</p>
+            <Button
+              variant={i === 0 ? "default" : "secondary"}
+              onClick={() => setLocation(card.href)}
+              className="mt-auto font-bold gap-2 w-fit"
+            >
+              {card.cta} <ArrowRight size={14} />
+            </Button>
+          </motion.div>
+        ))}
       </div>
     </div>
   );

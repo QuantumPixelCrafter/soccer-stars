@@ -10,6 +10,9 @@ import Login from '@/pages/login';
 import Dashboard from '@/pages/dashboard';
 import Collection from '@/pages/collection';
 import Shop from '@/pages/shop';
+import Squad from '@/pages/squad';
+import Market from '@/pages/market';
+import DailyObjective from '@/pages/daily-objective';
 
 import { getToken } from '@/lib/auth';
 
@@ -23,7 +26,7 @@ function Router() {
           <Redirect to={getToken() ? "/dashboard" : "/login"} />
         )}
       </Route>
-      
+
       <Route path="/login">
         <Layout>
           <Login />
@@ -50,6 +53,30 @@ function Router() {
         <ProtectedRoute>
           <Layout>
             <Shop />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/squad">
+        <ProtectedRoute>
+          <Layout>
+            <Squad />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/market">
+        <ProtectedRoute>
+          <Layout>
+            <Market />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/daily-objective">
+        <ProtectedRoute>
+          <Layout>
+            <DailyObjective />
           </Layout>
         </ProtectedRoute>
       </Route>

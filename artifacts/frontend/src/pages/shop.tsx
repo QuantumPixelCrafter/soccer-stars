@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Coins, Package, Sparkles, X, Target, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { ExchangeOverlay } from "@/components/exchange-overlay";
 import confetti from "canvas-confetti";
 
 export default function Shop() {
@@ -14,34 +15,39 @@ export default function Shop() {
   const buyPackMutation = useBuyPack();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const [openingPack, setOpeningPack] = useState<boolean>(false);
   const [revealData, setRevealData] = useState<PlayerCard[] | null>(null);
+  const [duplicateCards, setDuplicateCards] = useState<PlayerCard[]>([]);
 
   const handleBuy = (pack: Pack) => {
     if (openingPack) return;
-    
     setOpeningPack(true);
-    
+
     buyPackMutation.mutate({ data: { packType: pack.id } }, {
       onSuccess: (data) => {
-        // Delay reveal slightly for dramatic effect
         setTimeout(() => {
           setOpeningPack(false);
           setRevealData(data.players);
-          
-          // Fire confetti
+
           confetti({
-            particleCount: 100,
-            spread: 70,
+            particleCount: 120,
+            spread: 80,
             origin: { y: 0.6 },
-            colors: ['#FFD700', '#FFAA00', '#FFFFFF']
+            colors: ['#FFD700', '#FFAA00', '#FFFFFF', '#FFA500'],
           });
-          
-          // Invalidate resources
+
           queryClient.invalidateQueries({ queryKey: getGetBalanceQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetInventorySummaryQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetPlayersQueryKey() });
+
+          // Queue duplicate cards for exchange overlay (shown after reveal is closed)
+          if (data.duplicate_inventory_ids?.length) {
+            const dupeCards = data.players.filter((p) =>
+              data.duplicate_inventory_ids!.includes(p.inventory_id),
+            );
+            setDuplicateCards(dupeCards);
+          }
         }, 800);
       },
       onError: (error) => {
@@ -51,12 +57,33 @@ export default function Shop() {
           title: "Purchase Failed",
           description: (error.data as { error?: string })?.error || "Not enough coins or pack unavailable.",
         });
-      }
+      },
     });
   };
 
+  function handleRevealClose() {
+    setRevealData(null);
+    // Show exchange overlay for duplicates after reveal is closed
+    // (if duplicateCards was already set, the overlay will appear)
+  }
+
+  function handleExchangeComplete() {
+    setDuplicateCards([]);
+    queryClient.invalidateQueries({ queryKey: getGetPlayersQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetBalanceQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetInventorySummaryQueryKey() });
+  }
+
   return (
     <div className="space-y-8">
+      {/* Exchange overlay for duplicate cards (appears after reveal is closed) */}
+      {!revealData && duplicateCards.length > 0 && (
+        <ExchangeOverlay
+          duplicateCards={duplicateCards}
+          onComplete={handleExchangeComplete}
+        />
+      )}
+
       <div>
         <h1 className="text-4xl font-bold tracking-tight mb-2">Pack Store</h1>
         <p className="text-muted-foreground text-lg">Spend coins. Crack packs. Pull legends.</p>
@@ -71,11 +98,11 @@ export default function Shop() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {packs?.map((pack) => (
-            <PackItem 
-              key={pack.id} 
-              pack={pack} 
-              onBuy={() => handleBuy(pack)} 
-              isBuying={openingPack && buyPackMutation.variables?.data?.packType === pack.id} 
+            <PackItem
+              key={pack.id}
+              pack={pack}
+              onBuy={() => handleBuy(pack)}
+              isBuying={openingPack && buyPackMutation.variables?.data?.packType === pack.id}
             />
           ))}
         </div>
@@ -84,9 +111,9 @@ export default function Shop() {
       {/* Full Screen Reveal Overlay */}
       <AnimatePresence>
         {revealData && (
-          <PackReveal 
-            players={revealData} 
-            onClose={() => setRevealData(null)} 
+          <PackReveal
+            players={revealData}
+            onClose={handleRevealClose}
           />
         )}
       </AnimatePresence>
@@ -95,59 +122,72 @@ export default function Shop() {
 }
 
 function PackItem({ pack, onBuy, isBuying }: { pack: Pack, onBuy: () => void, isBuying: boolean }) {
-  // Determine style based on pack cost (cheap vs premium)
-  const isPremium = pack.cost >= 500;
-  
+  const isPremium = pack.cost >= 700;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`relative bg-card border rounded-2xl overflow-hidden flex flex-col items-center p-8 text-center transition-all duration-300 ${
-        isPremium 
-          ? "border-primary/50 shadow-[0_0_30px_rgba(255,170,0,0.1)] hover:border-primary hover:shadow-[0_0_40px_rgba(255,170,0,0.2)]" 
-          : "border-border hover:border-muted-foreground"
+      whileHover={{ y: -4 }}
+      className={`relative flex flex-col rounded-2xl overflow-hidden border ${
+        isPremium
+          ? "border-yellow-500/40 bg-gradient-to-br from-yellow-950/30 to-card"
+          : "border-border bg-card"
       }`}
     >
       {isPremium && (
-        <div className="absolute top-4 right-4 text-primary animate-pulse">
-          <Sparkles size={20} />
+        <div className="absolute top-3 right-3">
+          <span className="bg-yellow-500 text-black text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+            Premium
+          </span>
         </div>
       )}
-      
-      <div className={`w-32 h-40 rounded-xl mb-6 flex items-center justify-center shadow-2xl relative overflow-hidden ${
-        isPremium ? "bg-gradient-to-br from-primary to-primary-border" : "bg-gradient-to-br from-slate-700 to-slate-900"
-      }`}>
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-30 mix-blend-overlay" />
-        <Package size={48} className="text-white relative z-10" />
-      </div>
-      
-      <h3 className="text-2xl font-bold uppercase tracking-tight mb-2">{pack.name}</h3>
-      <p className="text-muted-foreground mb-6 min-h-[48px]">{pack.description}</p>
-      
-      <div className="mt-auto w-full space-y-4">
-        <div className="flex justify-between items-center px-4 py-2 bg-background/50 rounded-lg">
-          <span className="text-sm font-bold text-muted-foreground uppercase">Cards</span>
-          <span className="font-mono font-bold text-lg">{pack.card_count}</span>
+
+      <div className={`p-8 flex items-center justify-center ${isPremium ? "bg-yellow-500/5" : ""}`}>
+        <div className={`relative w-20 h-20 rounded-2xl flex items-center justify-center ${
+          isPremium
+            ? "bg-gradient-to-br from-yellow-400 to-yellow-600 shadow-lg shadow-yellow-500/30"
+            : "bg-gradient-to-br from-blue-500/20 to-blue-700/20"
+        }`}>
+          <Package size={36} className={isPremium ? "text-yellow-900" : "text-blue-400"} />
+          {isPremium && (
+            <Sparkles size={16} className="absolute -top-2 -right-2 text-yellow-300" />
+          )}
         </div>
-        
-        <Button 
+      </div>
+
+      <div className="p-6 flex flex-col flex-1">
+        <h3 className="text-xl font-bold mb-2">{pack.name}</h3>
+        <p className="text-muted-foreground text-sm mb-4 flex-1">{pack.description}</p>
+
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-1.5">
+            <Package size={14} className="text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">{pack.card_count} card{pack.card_count > 1 ? "s" : ""}</span>
+          </div>
+          <div className="flex items-center gap-1.5 font-bold">
+            <Coins size={16} className="text-yellow-400" />
+            <span className="text-xl">{pack.cost.toLocaleString()}</span>
+          </div>
+        </div>
+
+        <Button
+          className={`w-full font-bold ${isPremium ? "bg-yellow-500 hover:bg-yellow-400 text-black" : ""}`}
           onClick={onBuy}
           disabled={isBuying}
-          className={`w-full h-14 text-lg font-bold gap-2 ${
-            isPremium ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-white text-black hover:bg-gray-200"
-          }`}
         >
           {isBuying ? (
-            <motion.div 
-              animate={{ rotate: 360 }} 
-              transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-            >
-              <Package size={20} />
-            </motion.div>
+            <span className="flex items-center gap-2">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 0.6, ease: "linear" }}
+              >
+                <Sparkles size={16} />
+              </motion.div>
+              Opening…
+            </span>
           ) : (
-            <>
-              Buy for {pack.cost} <Coins size={20} />
-            </>
+            `Buy for ${pack.cost.toLocaleString()} coins`
           )}
         </Button>
       </div>
@@ -156,117 +196,172 @@ function PackItem({ pack, onBuy, isBuying }: { pack: Pack, onBuy: () => void, is
 }
 
 function PackReveal({ players, onClose }: { players: PlayerCard[], onClose: () => void }) {
-  return (
-    <Dialog open={true} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-5xl h-[80vh] bg-transparent border-none shadow-none flex flex-col items-center justify-center p-0">
-        <button 
-          onClick={onClose}
-          className="absolute top-4 right-4 p-4 text-white/50 hover:text-white transition-colors z-50 rounded-full bg-black/20 backdrop-blur"
-        >
-          <X size={24} />
-        </button>
-        
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-          className="w-full text-center mb-12"
-        >
-          <h2 className="text-4xl md:text-6xl font-black text-white uppercase tracking-widest drop-shadow-[0_0_20px_rgba(255,170,0,0.8)]">
-            Pack Opened
-          </h2>
-        </motion.div>
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [revealed, setRevealed] = useState<boolean[]>(new Array(players.length).fill(false));
 
-        <div className="flex flex-wrap justify-center gap-6 md:gap-10 perspective-1000">
-          {players.map((player, idx) => (
-            <RevealCard key={idx} player={player} index={idx} total={players.length} />
-          ))}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
+  const revealNext = () => {
+    setRevealed((prev) => {
+      const next = [...prev];
+      next[currentIdx] = true;
+      return next;
+    });
+    if (currentIdx < players.length - 1) {
+      setTimeout(() => setCurrentIdx((i) => i + 1), 300);
+    }
+  };
 
-function RevealCard({ player, index, total }: { player: PlayerCard, index: number, total: number }) {
-  const isGK = player.is_gk;
-  const overall = isGK 
-    ? Math.round(((player.fks || 0) + (player.pks || 0)) / 2)
-    : Math.round(((player.fk || 0) + (player.pk || 0)) / 2);
-    
-  const isRare = overall >= 85;
-  const borderClass = isRare ? "border-primary shadow-[0_0_30px_rgba(255,170,0,0.5)]" : "border-border shadow-2xl";
-  const bgClass = isGK ? "bg-gradient-to-b from-[#0A1F16] to-[#050f0b]" : "bg-gradient-to-b from-[#1E1100] to-[#0f0800]";
+  const revealAll = () => {
+    setRevealed(new Array(players.length).fill(true));
+    setCurrentIdx(players.length - 1);
+  };
+
+  const allRevealed = revealed.every(Boolean);
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 100, rotateY: 180, scale: 0.8 }}
-      animate={{ opacity: 1, y: 0, rotateY: 0, scale: 1 }}
-      transition={{ 
-        delay: 0.5 + (index * 0.4), 
-        duration: 0.8, 
-        type: "spring",
-        bounce: 0.4
-      }}
-      whileHover={{ scale: 1.05, translateY: -10 }}
-      className={`w-64 h-96 relative rounded-2xl overflow-hidden border-2 ${borderClass} ${bgClass} transform-style-3d`}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.96)", backdropFilter: "blur(20px)" }}
     >
-      {isRare && (
-        <motion.div 
-          animate={{ opacity: [0.3, 0.8, 0.3] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className="absolute inset-0 bg-gradient-to-tr from-transparent via-primary/20 to-transparent pointer-events-none" 
-        />
-      )}
-      
-      <div className="px-5 py-4 flex justify-between items-start relative z-10">
-        <div className="flex flex-col items-center">
-          <span className="text-4xl font-black font-mono tracking-tighter text-white drop-shadow-md">{overall}</span>
-          <span className="text-sm font-bold uppercase tracking-wider text-white/70">{player.position}</span>
-        </div>
-        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isGK ? 'bg-secondary/20 text-secondary' : 'bg-primary/20 text-primary'}`}>
-          {isGK ? <Shield size={20} /> : <Target size={20} />}
-        </div>
+      {/* Close button */}
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+      >
+        <X size={20} />
+      </button>
+
+      <div className="text-center mb-8">
+        <h2 className="text-3xl font-black mb-2">Pack Opened!</h2>
+        <p className="text-muted-foreground">
+          {allRevealed ? `${players.length} card${players.length > 1 ? "s" : ""} added to your collection` : "Tap to reveal your cards"}
+        </p>
       </div>
-      
-      <div className="h-[120px] flex items-center justify-center relative">
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10" />
-        <div className="w-28 h-28 rounded-full border-2 border-white/10 flex items-center justify-center bg-black/50 backdrop-blur z-0 shadow-xl overflow-hidden relative">
-          <span className="text-5xl font-black opacity-20 uppercase text-white">
-            {player.name.substring(0, 2)}
-          </span>
-        </div>
+
+      {/* Cards grid */}
+      <div className={`grid gap-4 mb-8 px-4 ${
+        players.length === 1 ? "grid-cols-1" :
+        players.length <= 3 ? "grid-cols-3" :
+        "grid-cols-3"
+      }`} style={{ maxWidth: "800px", width: "100%" }}>
+        {players.map((player, i) => (
+          <motion.div
+            key={player.inventory_id ?? i}
+            initial={{ scale: 0, rotateY: 180 }}
+            animate={revealed[i] ? { scale: 1, rotateY: 0 } : { scale: 0.8, rotateY: 180, opacity: 0.5 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className={`cursor-pointer ${i === currentIdx && !revealed[i] ? "ring-2 ring-yellow-400 ring-offset-2 ring-offset-black rounded-2xl" : ""}`}
+            onClick={() => !revealed[i] && i === currentIdx && revealNext()}
+            style={{ height: players.length <= 3 ? "240px" : "180px" }}
+          >
+            <RevealCard player={player} revealed={revealed[i]!} />
+          </motion.div>
+        ))}
       </div>
-      
-      <div className="p-5 relative z-10 text-center bg-gradient-to-t from-black via-black/80 to-transparent absolute bottom-0 left-0 right-0 pt-10">
-        <h3 className="text-2xl font-bold uppercase tracking-tight text-white mb-1 line-clamp-1">{player.name}</h3>
-        <p className="text-sm font-medium text-primary mb-4 uppercase tracking-wider">{player.club}</p>
-        
-        <div className="grid grid-cols-2 gap-4">
-          {isGK ? (
-            <>
-              <RevealStat label="FKS" value={player.fks || 0} />
-              <RevealStat label="PKS" value={player.pks || 0} />
-            </>
-          ) : (
-            <>
-              <RevealStat label="FK" value={player.fk || 0} />
-              <RevealStat label="PK" value={player.pk || 0} />
-            </>
-          )}
-        </div>
+
+      {/* Action buttons */}
+      <div className="flex gap-4">
+        {!allRevealed && (
+          <>
+            <Button variant="outline" onClick={revealAll} className="font-bold">
+              Reveal All
+            </Button>
+            <Button onClick={revealNext} className="gap-2 font-bold px-8">
+              <Sparkles size={16} />
+              Reveal Next
+            </Button>
+          </>
+        )}
+        {allRevealed && (
+          <Button onClick={onClose} className="gap-2 font-bold px-8">
+            Collect Cards <X size={16} />
+          </Button>
+        )}
       </div>
     </motion.div>
   );
 }
 
-function RevealStat({ label, value }: { label: string, value: number }) {
-  const isHigh = value >= 85;
-  const colorClass = isHigh ? "text-primary text-shadow-glow" : "text-white";
-  
+function RevealCard({ player, revealed }: { player: PlayerCard; revealed: boolean }) {
+  const isBenchPool = player.is_bench_pool;
+
+  if (!revealed) {
+    return (
+      <div
+        style={{
+          width: "100%", height: "100%", borderRadius: "14px",
+          background: "linear-gradient(135deg, #1a1a2e, #16213e, #0f3460)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}
+      >
+        <div style={{ fontSize: "36px" }}>🃏</div>
+      </div>
+    );
+  }
+
+  const ovr = player.overall ?? 70;
+  const color = ovr >= 85 ? "#ff6b35" : ovr >= 78 ? "#ffd700" : ovr >= 70 ? "#c0c0c0" : "#cd7f32";
+
   return (
-    <div className="flex flex-col items-center">
-      <span className="text-xs text-white/60 uppercase font-bold tracking-widest">{label}</span>
-      <span className={`text-2xl font-black font-mono ${colorClass}`}>{value}</span>
+    <div
+      style={{
+        width: "100%", height: "100%", borderRadius: "14px", overflow: "hidden",
+        background: isBenchPool
+          ? "linear-gradient(135deg, #3a3a4a, #5a5a6a, #4a4a5a)"
+          : "linear-gradient(135deg, #7c5c0a, #d4a20a, #ffd700, #ffe566, #c9922a, #ffd700, #d4a20a, #7c5c0a)",
+        backgroundSize: "200% 200%",
+        animation: "goldShimmer 3s ease-in-out infinite",
+        border: `2px solid ${color}60`,
+        boxShadow: isBenchPool ? "0 8px 24px rgba(0,0,0,0.5)" : `0 8px 32px ${color}30`,
+        position: "relative",
+      }}
+    >
+      {/* Shimmer overlay */}
+      <div style={{
+        position: "absolute", inset: 0,
+        background: "linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.2) 50%, transparent 60%)",
+        backgroundSize: "200% 100%",
+        animation: "shimmerSlide 2s ease-in-out infinite",
+      }} />
+
+      <div style={{ position: "relative", padding: "12px", height: "100%", display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <div style={{ fontSize: "20px", fontWeight: "900", color: isBenchPool ? "#ddd" : "#1a0a00", lineHeight: 1 }}>{ovr}</div>
+            <div style={{ fontSize: "8px", fontWeight: "700", color: isBenchPool ? "#aaa" : "#3a1a00", letterSpacing: "1px" }}>
+              {player.is_gk ? "GK" : (player.tactical_position ?? player.position)}
+            </div>
+          </div>
+          {player.is_gk ? (
+            <Shield size={14} style={{ color: isBenchPool ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.3)" }} />
+          ) : (
+            <Target size={14} style={{ color: isBenchPool ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.3)" }} />
+          )}
+        </div>
+
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{
+            width: "48px", height: "48px", borderRadius: "50%",
+            background: isBenchPool ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.2)",
+            border: `2px solid ${isBenchPool ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)"}`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: "14px", fontWeight: "900",
+            color: isBenchPool ? "#fff" : "#1a0a00",
+          }}>
+            {player.initials}
+          </div>
+        </div>
+
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "10px", fontWeight: "800", color: isBenchPool ? "#fff" : "#1a0a00", lineHeight: 1.1, marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {player.name}
+          </div>
+          <div style={{ fontSize: "8px", color: isBenchPool ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.4)" }}>{player.club}</div>
+        </div>
+      </div>
     </div>
   );
 }

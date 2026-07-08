@@ -1,0 +1,15 @@
+ migration.
+
+1. Free 11-Player Starter Pack: Create a backend account registration trigger. Upon first-time user creation, the system must automatically and atomically grant a Free Starter Pack containing exactly 11 position-perfect cards pulled from our 60-78 famous bench player database pool:
+   - Fixed Slots: 1 GK, 2 CB, 1 RB, 1 LB, 1 CM, 1 ST, 1 RW, 1 LW.
+   - Midfield Random Dynamic Mix: The remaining 2 slots must randomly roll either (2 CM) OR (2 CDM) OR (1 CM and 1 CAM). 
+   This ensures every newcomer instantly has a fully valid 11-man squad that can legally fit into any of our four 4-3-3 pure tactical configurations immediately without shopping.
+
+2. FUT-Style Global Transfer Market (Auction & Bidding): Create a robust, real-time shared global market page in the backend database.
+   - Listing Action: Users can list any unlocked card from their inventory. They select an auction duration expiration timer (e.g., 1 hour, 2 hours, 6 hours). The system must force the "Starting Bid Price" to be strictly higher than that card's system Exchange/Quick Sell value (Value = [X-Rating^2] / 70).
+   - Global Bidding Engine: Other players globally can view the market listings and place increment bids. When a user bids, their coins are deducted and securely escrowed by the server. If another user outbids them, the previous bidder's coins are instantly credited back to their balance.
+   - Expiration Resolution (Transfer Safe): Store all listing expirations as absolute UNIX timestamps ('expires_at') directly inside the SQLite database. Upon server reboot or account transfer, the backend must instantly scan the database for any missed expirations and resolve them safely, transferring ownership to the highest bidder and coins to the seller.
+
+3. Team OVR & 4-3-3 Objective Matrix: Team OVR is the direct average of the 11 starter cards' ratings. If Team OVR is lower than an opponent's during matchmaking, apply a dynamic attribute nerf (-5% for every 5 points difference) across FKK, PKK, FKS, PKS, and POW; apply a buff if higher. Every day at UTC +0, randomly cycle the Daily Objective across the 16 non-4-3-3 formations where LM/RM are replaced by LW/RW. Users build this separate team out of their own owned cards.
+
+4. Mandatory Exchange & UI: Retain the mandatory inescapable Exchange/Quick Sell overlay for packed duplicate items. Cards must feature a shiny gold CSS metallic gradient backdrop with a 60 FPS 3D hover-flip animation.

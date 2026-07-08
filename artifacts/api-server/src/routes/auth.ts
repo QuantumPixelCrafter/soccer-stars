@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import db from "../db/database.js";
 import { emitToUser } from "../lib/socket.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
+import { logger } from "../lib/logger.js";
 
 const router = Router();
 
@@ -17,16 +18,67 @@ function generateToken(): string {
 }
 
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  return new Date().toISOString().slice(0, 10);
+}
+
+// ─── Starter Pack ─────────────────────────────────────────────────────────────
+
+const MID_ROLL_OPTIONS: Array<{ positions: string[]; counts: number[] }> = [
+  { positions: ["CM"],         counts: [2] },   // 2 CM
+  { positions: ["CDM"],        counts: [2] },   // 2 CDM
+  { positions: ["CM", "CAM"], counts: [1, 1] }, // 1 CM + 1 CAM
+];
+
+/**
+ * Grants a position-perfect 11-card starter pack atomically.
+ * Draws from the bench pool exclusively.
+ * Must be called inside a db.transaction.
+ */
+function grantStarterPack(userId: number): void {
+  const insertInv = db.prepare(
+    "INSERT INTO user_inventory (user_id, player_id) VALUES (?,?)",
+  );
+
+  function drawFromPool(tacticalPos: string, limit: number): number[] {
+    const rows = db
+      .prepare(
+        `SELECT id FROM players_base
+         WHERE is_bench_pool=1 AND tactical_position=?
+         ORDER BY RANDOM() LIMIT ?`,
+      )
+      .all(tacticalPos, limit) as Array<{ id: number }>;
+    return rows.map((r) => r.id);
+  }
+
+  const playerIds: number[] = [];
+
+  // Fixed slots
+  playerIds.push(...drawFromPool("GK",  1));
+  playerIds.push(...drawFromPool("CB",  2));
+  playerIds.push(...drawFromPool("RB",  1));
+  playerIds.push(...drawFromPool("LB",  1));
+  playerIds.push(...drawFromPool("ST",  1));
+  playerIds.push(...drawFromPool("RW",  1));
+  playerIds.push(...drawFromPool("LW",  1));
+
+  // Midfield dynamic mix
+  const roll = MID_ROLL_OPTIONS[Math.floor(Math.random() * MID_ROLL_OPTIONS.length)]!;
+  for (let i = 0; i < roll.positions.length; i++) {
+    playerIds.push(...drawFromPool(roll.positions[i]!, roll.counts[i]!));
+  }
+
+  // Insert all into inventory (should always be 11, but guard gracefully)
+  for (const playerId of playerIds) {
+    insertInv.run(userId, playerId);
+  }
+
+  logger.info({ userId, cards: playerIds.length, midMix: roll.positions }, "Starter pack granted");
+
+  db.prepare("UPDATE users SET has_starter_pack=1 WHERE id=?").run(userId);
 }
 
 // ─── POST /api/auth/register ──────────────────────────────────────────────────
 
-/**
- * Register a new account.
- * Body: { username: string, password: string }
- * Returns: { token, userId, username, coins }
- */
 router.post("/register", (req, res) => {
   const { username, password } = req.body as {
     username?: string;
@@ -46,11 +98,9 @@ router.post("/register", (req, res) => {
     return;
   }
 
-  // Check uniqueness
   const existing = db
     .prepare("SELECT id FROM users WHERE username = ?")
     .get(username.trim()) as { id: number } | undefined;
-
   if (existing) {
     res.status(409).json({ error: "Username already taken" });
     return;
@@ -70,32 +120,41 @@ router.post("/register", (req, res) => {
 
     const userId = result.lastInsertRowid as number;
 
-    db.prepare("INSERT INTO sessions (token, user_id) VALUES (?, ?)").run(
-      token,
-      userId,
-    );
+    db.prepare("INSERT INTO sessions (token, user_id) VALUES (?, ?)").run(token, userId);
+
+    // Atomically grant starter pack on first registration
+    grantStarterPack(userId);
 
     return userId;
   });
 
   const userId = registerTx();
 
+  // Fetch starter pack cards to return in registration response
+  const starterCards = db
+    .prepare(`
+      SELECT ui.id AS inventory_id, pb.name, pb.initials, pb.overall,
+             pb.tactical_position, pb.is_gk, pb.fk, pb.pk, pb.fks, pb.pks,
+             pb.club, pb.country
+      FROM user_inventory ui
+      JOIN players_base pb ON ui.player_id = pb.id
+      WHERE ui.user_id=?
+      ORDER BY ui.acquired_at ASC
+    `)
+    .all(userId) as unknown[];
+
   res.status(201).json({
     token,
     userId,
     username: username.trim(),
     coins:    1000,
-    message:  "Account created — welcome bonus: 1000 coins!",
+    message:  "Account created — welcome bonus: 1000 coins + Free 11-Player Starter Pack!",
+    starter_pack: starterCards,
   });
 });
 
 // ─── POST /api/auth/login ─────────────────────────────────────────────────────
 
-/**
- * Log into an existing account.
- * Body: { username: string, password: string }
- * Returns: { token, userId, username, coins }
- */
 router.post("/login", (req, res) => {
   const { username, password } = req.body as {
     username?: string;
@@ -112,13 +171,7 @@ router.post("/login", (req, res) => {
       "SELECT id, username, password_hash, password_salt, coins FROM users WHERE username = ?",
     )
     .get(username.trim()) as
-    | {
-        id:            number;
-        username:      string;
-        password_hash: string;
-        password_salt: string;
-        coins:         number;
-      }
+    | { id: number; username: string; password_hash: string; password_salt: string; coins: number }
     | undefined;
 
   if (!user) {
@@ -132,87 +185,50 @@ router.post("/login", (req, res) => {
     return;
   }
 
-  // Issue a fresh session token
   const token = generateToken();
-  db.prepare("INSERT INTO sessions (token, user_id) VALUES (?, ?)").run(
-    token,
-    user.id,
-  );
+  db.prepare("INSERT INTO sessions (token, user_id) VALUES (?, ?)").run(token, user.id);
 
-  res.json({
-    token,
-    userId:   user.id,
-    username: user.username,
-    coins:    user.coins,
-    message:  "Login successful",
-  });
+  res.json({ token, userId: user.id, username: user.username, coins: user.coins });
+});
+
+// ─── POST /api/auth/logout ────────────────────────────────────────────────────
+
+router.post("/logout", requireAuth, (req: AuthRequest, res) => {
+  const authHeader = req.headers["authorization"] ?? "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (token) {
+    db.prepare("DELETE FROM sessions WHERE token=?").run(token);
+  }
+  res.json({ success: true });
 });
 
 // ─── POST /api/auth/daily-claim ───────────────────────────────────────────────
 
-/**
- * Claim the daily +200 coin login bonus.
- * Requires: Authorization: Bearer <token>
- * Returns: { coins, awarded, nextClaimAt }
- */
 router.post("/daily-claim", requireAuth, (req: AuthRequest, res) => {
-  const userId = req.userId!;
-  const today  = todayISO();
-
   const user = db
-    .prepare("SELECT coins, last_daily_claim FROM users WHERE id = ?")
-    .get(userId) as { coins: number; last_daily_claim: string | null } | undefined;
+    .prepare("SELECT id, coins, last_daily_claim FROM users WHERE id=?")
+    .get(req.userId!) as { id: number; coins: number; last_daily_claim: string | null } | undefined;
 
   if (!user) {
     res.status(404).json({ error: "User not found" });
     return;
   }
 
+  const today = todayISO();
   if (user.last_daily_claim === today) {
-    // Calculate when next claim is available (midnight UTC)
-    const tomorrow = new Date();
-    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-    tomorrow.setUTCHours(0, 0, 0, 0);
-
-    res.status(429).json({
-      error:       "Daily bonus already claimed today",
-      nextClaimAt: tomorrow.toISOString(),
-      coins:       user.coins,
-    });
+    res.status(400).json({ error: "Daily reward already claimed today" });
     return;
   }
 
-  const newCoins = user.coins + 200;
-  db.prepare(
-    "UPDATE users SET coins = ?, last_daily_claim = ? WHERE id = ?",
-  ).run(newCoins, today, userId);
+  const DAILY_COINS = 200;
+  db.prepare("UPDATE users SET coins=coins+?, last_daily_claim=? WHERE id=?").run(
+    DAILY_COINS, today, user.id,
+  );
 
-  // Notify connected client in real-time
-  emitToUser(userId, "coins:updated", { coins: newCoins, reason: "daily_claim" });
+  const newCoins = user.coins + DAILY_COINS;
+  emitToUser(user.id, "coins:updated", { coins: newCoins, reason: "daily_claim" });
 
-  const tomorrow = new Date();
-  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-  tomorrow.setUTCHours(0, 0, 0, 0);
-
-  res.json({
-    awarded: 200,
-    coins:   newCoins,
-    nextClaimAt: tomorrow.toISOString(),
-    message: "+200 daily login bonus claimed!",
-  });
-});
-
-// ─── POST /api/auth/logout ────────────────────────────────────────────────────
-
-/**
- * Invalidate the current session token.
- * Requires: Authorization: Bearer <token>
- */
-router.post("/logout", requireAuth, (req: AuthRequest, res) => {
-  const authHeader = req.headers["authorization"]!;
-  const token      = authHeader.slice(7).trim();
-  db.prepare("DELETE FROM sessions WHERE token = ?").run(token);
-  res.json({ message: "Logged out successfully" });
+  res.json({ awarded: DAILY_COINS, coins: newCoins });
 });
 
 export default router;

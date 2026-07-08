@@ -1,20 +1,20 @@
 openapi: 3.1.0
 info:
   title: Api
-  version: 0.1.0
-  description: Gacha Card Game API
+  version: 0.2.0
+  description: FreeKick Gacha Card Game API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
   - name: auth
-    description: Authentication operations
   - name: inventory
-    description: Player inventory operations
   - name: shop
-    description: Shop and pack operations
+  - name: squad
+  - name: market
+  - name: daily-objective
+
 paths:
   /healthz:
     get:
@@ -33,7 +33,7 @@ paths:
     post:
       operationId: register
       tags: [auth]
-      summary: Register a new account
+      summary: Register a new account (auto-grants Free 11-Player Starter Pack)
       requestBody:
         required: true
         content:
@@ -46,7 +46,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthResponse"
+                $ref: "#/components/schemas/RegistrationResult"
         "400":
           description: Validation error
           content:
@@ -124,7 +124,7 @@ paths:
       summary: Get current coin balance
       responses:
         "200":
-          description: Balance retrieved
+          description: Balance
           content:
             application/json:
               schema:
@@ -149,20 +149,51 @@ paths:
     get:
       operationId: getInventorySummary
       tags: [inventory]
-      summary: Summary of coins and card counts
+      summary: Get inventory summary (coins + card counts)
       responses:
         "200":
-          description: Summary retrieved
+          description: Summary
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/InventorySummary"
 
+  /inventory/exchange/{inventoryId}:
+    post:
+      operationId: exchangeCard
+      tags: [inventory]
+      summary: Quick-sell a card for coins (value = floor(overall^2/70))
+      parameters:
+        - name: inventoryId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Card exchanged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExchangeResult"
+        "404":
+          description: Card not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Card is listed on market
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /shop/packs:
     get:
       operationId: getPacks
       tags: [shop]
-      summary: List available packs with costs and contents
+      summary: List available packs
       responses:
         "200":
           description: Pack list
@@ -177,7 +208,7 @@ paths:
     post:
       operationId: buyPack
       tags: [shop]
-      summary: Purchase a pack and receive random players
+      summary: Purchase a pack
       requestBody:
         required: true
         content:
@@ -186,13 +217,19 @@ paths:
               $ref: "#/components/schemas/BuyPackInput"
       responses:
         "200":
-          description: Pack opened successfully
+          description: Pack opened
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PackOpenResult"
         "400":
-          description: Insufficient coins or invalid pack
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Insufficient coins
           content:
             application/json:
               schema:
@@ -202,26 +239,238 @@ paths:
     get:
       operationId: getNerfPreview
       tags: [shop]
-      summary: Preview effective stats when applying Universal Nerf Rule
+      summary: Preview Universal Nerf Rule for a player
       parameters:
         - name: playerId
           in: query
           required: true
           schema:
             type: integer
-        - name: usedAsRole
-          in: query
-          required: true
-          schema:
-            type: string
-            enum: [shooter, goalkeeper]
       responses:
         "200":
-          description: Nerf preview stats
+          description: Nerf preview
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/NerfPreview"
+
+  /squad/{squadType}:
+    get:
+      operationId: getSquad
+      tags: [squad]
+      summary: Get a squad (main or daily_objective)
+      parameters:
+        - name: squadType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [main, daily_objective]
+      responses:
+        "200":
+          description: Squad data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Squad"
+
+  /squad/{squadType}/slot:
+    put:
+      operationId: setSquadSlot
+      tags: [squad]
+      summary: Assign a player card to a formation slot
+      parameters:
+        - name: squadType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [main, daily_objective]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetSlotInput"
+      responses:
+        "200":
+          description: Updated squad
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Squad"
+        "422":
+          description: Position incompatible
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /squad/{squadType}/slot/{slotKey}:
+    delete:
+      operationId: removeSquadSlot
+      tags: [squad]
+      summary: Remove a player from a formation slot
+      parameters:
+        - name: squadType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [main, daily_objective]
+        - name: slotKey
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated squad
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Squad"
+
+  /market:
+    get:
+      operationId: getMarket
+      tags: [market]
+      summary: List active market auctions
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: position
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Market listings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketPage"
+
+  /market/my-listings:
+    get:
+      operationId: getMyListings
+      tags: [market]
+      summary: My active listings
+      responses:
+        "200":
+          description: My listings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MarketListing"
+
+  /market/my-bids:
+    get:
+      operationId: getMyBids
+      tags: [market]
+      summary: Items where I am the current highest bidder
+      responses:
+        "200":
+          description: My active bids
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MarketListing"
+
+  /market/list:
+    post:
+      operationId: createListing
+      tags: [market]
+      summary: List a card for auction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateListingInput"
+      responses:
+        "201":
+          description: Listing created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketListing"
+        "422":
+          description: Bid below minimum
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /market/bid/{listingId}:
+    post:
+      operationId: placeBid
+      tags: [market]
+      summary: Place a bid on a market listing
+      parameters:
+        - name: listingId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlaceBidInput"
+      responses:
+        "200":
+          description: Bid placed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketListing"
+        "422":
+          description: Bid too low or insufficient coins
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /market/cancel/{listingId}:
+    delete:
+      operationId: cancelListing
+      tags: [market]
+      summary: Cancel a listing (only if no bids)
+      parameters:
+        - name: listingId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Listing cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /daily-objective:
+    get:
+      operationId: getDailyObjective
+      tags: [daily-objective]
+      summary: Get today's daily objective formation and squad
+      responses:
+        "200":
+          description: Daily objective data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyObjective"
 
 components:
   schemas:
@@ -238,6 +487,8 @@ components:
       properties:
         error:
           type: string
+        min_bid:
+          type: integer
 
     SuccessResponse:
       type: object
@@ -245,6 +496,8 @@ components:
       properties:
         success:
           type: boolean
+        message:
+          type: string
 
     AuthInput:
       type: object
@@ -252,29 +505,48 @@ components:
       properties:
         username:
           type: string
-          minLength: 3
         password:
           type: string
-          minLength: 6
 
     AuthResponse:
       type: object
-      required: [token, username, coins]
+      required: [token, userId, username, coins]
       properties:
         token:
           type: string
+        userId:
+          type: integer
         username:
           type: string
         coins:
           type: integer
 
-    DailyReward:
+    RegistrationResult:
       type: object
-      required: [coins, awarded]
+      required: [token, userId, username, coins, message, starter_pack]
       properties:
+        token:
+          type: string
+        userId:
+          type: integer
+        username:
+          type: string
         coins:
           type: integer
+        message:
+          type: string
+        starter_pack:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlayerCard"
+
+    DailyReward:
+      type: object
+      required: [awarded, coins]
+      properties:
         awarded:
+          type: integer
+        coins:
           type: integer
 
     BalanceResponse:
@@ -284,42 +556,69 @@ components:
         coins:
           type: integer
 
+    InventorySummary:
+      type: object
+      required: [coins, total_cards, goalkeepers, shooters]
+      properties:
+        coins:
+          type: integer
+        total_cards:
+          type: integer
+        goalkeepers:
+          type: integer
+        shooters:
+          type: integer
+
     PlayerCard:
       type: object
-      required: [id, name, position, club, is_gk, acquired_at]
+      required: [id, inventory_id, name, initials, position, country, club, is_gk, overall, tactical_position, is_bench_pool, is_listed, acquired_at]
       properties:
         id:
           type: integer
+        inventory_id:
+          type: integer
         name:
           type: string
+        initials:
+          type: string
         position:
+          type: string
+        country:
           type: string
         club:
           type: string
         is_gk:
           type: boolean
         fk:
-          type: ["number", "null"]
+          type: ["integer", "null"]
         pk:
-          type: ["number", "null"]
+          type: ["integer", "null"]
         fks:
-          type: ["number", "null"]
+          type: ["integer", "null"]
         pks:
-          type: ["number", "null"]
+          type: ["integer", "null"]
+        overall:
+          type: integer
+        tactical_position:
+          type: string
+        is_bench_pool:
+          type: boolean
+        is_listed:
+          type: boolean
         acquired_at:
           type: string
 
-    InventorySummary:
+    ExchangeResult:
       type: object
-      required: [coins, total_cards, shooter_count, gk_count]
+      required: [success, coins_earned, player_name, new_balance]
       properties:
-        coins:
+        success:
+          type: boolean
+        coins_earned:
           type: integer
-        total_cards:
-          type: integer
-        shooter_count:
-          type: integer
-        gk_count:
+        player_name:
+          type: string
+        new_balance:
           type: integer
 
     Pack:
@@ -346,7 +645,7 @@ components:
 
     PackOpenResult:
       type: object
-      required: [players, remaining_coins]
+      required: [players, remaining_coins, duplicate_inventory_ids]
       properties:
         players:
           type: array
@@ -354,6 +653,10 @@ components:
             $ref: "#/components/schemas/PlayerCard"
         remaining_coins:
           type: integer
+        duplicate_inventory_ids:
+          type: array
+          items:
+            type: integer
 
     NerfPreview:
       type: object
@@ -371,3 +674,164 @@ components:
           type: ["number", "null"]
         effective_pk:
           type: ["number", "null"]
+
+    SquadSlotPlayer:
+      type: object
+      required: [inventory_id, player_id, name, initials, overall, tactical_position, is_gk, club, country]
+      properties:
+        inventory_id:
+          type: integer
+        player_id:
+          type: integer
+        name:
+          type: string
+        initials:
+          type: string
+        overall:
+          type: integer
+        tactical_position:
+          type: string
+        is_gk:
+          type: boolean
+        fk:
+          type: ["integer", "null"]
+        pk:
+          type: ["integer", "null"]
+        fks:
+          type: ["integer", "null"]
+        pks:
+          type: ["integer", "null"]
+        club:
+          type: string
+        country:
+          type: string
+        is_bench_pool:
+          type: boolean
+
+    Squad:
+      type: object
+      required: [squad_type, squad_id, slots]
+      properties:
+        squad_type:
+          type: string
+        squad_id:
+          type: integer
+        team_ovr:
+          type: ["integer", "null"]
+        slots:
+          type: object
+          additionalProperties:
+            oneOf:
+              - $ref: "#/components/schemas/SquadSlotPlayer"
+              - type: "null"
+
+    SetSlotInput:
+      type: object
+      required: [slot_key, inventory_id]
+      properties:
+        slot_key:
+          type: string
+        inventory_id:
+          type: integer
+
+    MarketListing:
+      type: object
+      required: [id, seller_id, seller_username, inventory_id, player_id, player_name, player_initials, player_overall, player_position, player_club, player_country, player_is_gk, starting_bid, current_bid, expires_at, created_at, quick_sell_value]
+      properties:
+        id:
+          type: integer
+        seller_id:
+          type: integer
+        seller_username:
+          type: string
+        inventory_id:
+          type: integer
+        player_id:
+          type: integer
+        player_name:
+          type: string
+        player_initials:
+          type: string
+        player_overall:
+          type: integer
+        player_position:
+          type: string
+        player_club:
+          type: string
+        player_country:
+          type: string
+        player_is_gk:
+          type: integer
+        starting_bid:
+          type: integer
+        current_bid:
+          type: integer
+        current_bidder_id:
+          type: ["integer", "null"]
+        current_bidder_username:
+          type: ["string", "null"]
+        expires_at:
+          type: integer
+        created_at:
+          type: string
+        quick_sell_value:
+          type: integer
+
+    MarketPage:
+      type: object
+      required: [listings, page, total, pages]
+      properties:
+        listings:
+          type: array
+          items:
+            $ref: "#/components/schemas/MarketListing"
+        page:
+          type: integer
+        total:
+          type: integer
+        pages:
+          type: integer
+
+    CreateListingInput:
+      type: object
+      required: [inventory_id, starting_bid, duration]
+      properties:
+        inventory_id:
+          type: integer
+        starting_bid:
+          type: integer
+        duration:
+          type: string
+          enum: ["1h", "2h", "6h", "12h", "24h"]
+
+    PlaceBidInput:
+      type: object
+      required: [amount]
+      properties:
+        amount:
+          type: integer
+
+    DailyObjective:
+      type: object
+      required: [date, formation, next_reset_at, formations_pool, squad]
+      properties:
+        date:
+          type: string
+        formation:
+          type: string
+        next_reset_at:
+          type: string
+        formations_pool:
+          type: array
+          items:
+            type: string
+        squad:
+          type: object
+          properties:
+            slots:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+            team_ovr:
+              type: ["integer", "null"]

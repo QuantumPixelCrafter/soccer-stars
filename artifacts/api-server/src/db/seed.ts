@@ -1,5 +1,6 @@
 import db from "./database.js";
 import { logger } from "../lib/logger.js";
+import { BENCH_PLAYERS, type BenchPlayer } from "./bench-seed.js";
 
 interface PlayerSeed {
   name: string;
@@ -41,163 +42,201 @@ const SHOOTERS: Omit<PlayerSeed, "is_gk">[] = [
   { name: "Darwin Núñez",        initials: "DN",  position: "FW", country: "Uruguay",     club: "Liverpool",          fk: 68, pk: 80 },
   { name: "Diogo Jota",          initials: "DJ",  position: "FW", country: "Portugal",    club: "Liverpool",          fk: 71, pk: 82 },
   { name: "Luis Díaz",           initials: "LD",  position: "FW", country: "Colombia",    club: "Liverpool",          fk: 79, pk: 77 },
-  { name: "Gabriel Martinelli",  initials: "GM",  position: "FW", country: "Brazil",      club: "Arsenal",            fk: 75, pk: 73 },
-  { name: "Leandro Trossard",    initials: "LT",  position: "FW", country: "Belgium",     club: "Arsenal",            fk: 81, pk: 76 },
-  { name: "Ferran Torres",       initials: "FT",  position: "FW", country: "Spain",       club: "Barcelona",          fk: 78, pk: 75 },
-  { name: "Ansu Fati",           initials: "AF",  position: "FW", country: "Spain",       club: "Brighton",           fk: 72, pk: 70 },
-  { name: "Randal Kolo Muani",   initials: "RKM", position: "FW", country: "France",      club: "Juventus",           fk: 74, pk: 78 },
-  { name: "Christopher Nkunku",  initials: "CN",  position: "FW", country: "France",      club: "Chelsea",            fk: 82, pk: 79 },
-  { name: "Marcus Thuram",       initials: "MT",  position: "FW", country: "France",      club: "Inter Milan",        fk: 70, pk: 75 },
-  { name: "Dusan Vlahovic",      initials: "DV",  position: "FW", country: "Serbia",      club: "Juventus",           fk: 83, pk: 85 },
-  { name: "Kenan Yıldız",        initials: "KY",  position: "FW", country: "Turkey",      club: "Juventus",           fk: 76, pk: 73 },
-  { name: "Federico Chiesa",     initials: "FC",  position: "FW", country: "Italy",       club: "Liverpool",          fk: 80, pk: 77 },
-  { name: "Victor Osimhen",      initials: "VO",  position: "FW", country: "Nigeria",     club: "Galatasaray",        fk: 67, pk: 82 },
-  { name: "Kaoru Mitoma",        initials: "KMi", position: "FW", country: "Japan",       club: "Brighton",           fk: 77, pk: 73 },
-  { name: "João Pedro",          initials: "JP",  position: "FW", country: "Brazil",      club: "Brighton",           fk: 74, pk: 78 },
-  { name: "Rasmus Højlund",      initials: "RH",  position: "FW", country: "Denmark",     club: "Manchester United",  fk: 71, pk: 77 },
-  { name: "Joshua Zirkzee",      initials: "JZ",  position: "FW", country: "Netherlands", club: "Manchester United",  fk: 73, pk: 75 },
-  { name: "Bruno Fernandes",     initials: "BF",  position: "MF", country: "Portugal",    club: "Manchester United",  fk: 88, pk: 86 },
-  { name: "Nicolás Jackson",     initials: "NJ",  position: "FW", country: "Senegal",     club: "Chelsea",            fk: 69, pk: 78 },
-  { name: "Mykhailo Mudryk",     initials: "MM",  position: "FW", country: "Ukraine",     club: "Chelsea",            fk: 73, pk: 70 },
-  { name: "Cole Palmer",         initials: "CP",  position: "MF", country: "England",     club: "Chelsea",            fk: 87, pk: 89 },
-  { name: "Noni Madueke",        initials: "NM",  position: "FW", country: "England",     club: "Chelsea",            fk: 76, pk: 74 },
-  { name: "Jeremy Doku",         initials: "JDo", position: "FW", country: "Belgium",     club: "Manchester City",    fk: 75, pk: 72 },
-  { name: "Savinho",             initials: "Sav", position: "FW", country: "Brazil",      club: "Manchester City",    fk: 78, pk: 74 },
-  { name: "Anthony Gordon",      initials: "AnG", position: "FW", country: "England",     club: "Newcastle",          fk: 79, pk: 76 },
-  { name: "Alexander Isak",      initials: "AI",  position: "FW", country: "Sweden",      club: "Newcastle",          fk: 77, pk: 83 },
-  { name: "Harvey Barnes",       initials: "HB",  position: "FW", country: "England",     club: "Newcastle",          fk: 75, pk: 73 },
-  { name: "Eberechi Eze",        initials: "EEz", position: "FW", country: "England",     club: "Crystal Palace",     fk: 83, pk: 80 },
-  { name: "Michael Olise",       initials: "MO",  position: "FW", country: "France",      club: "Bayern Munich",      fk: 85, pk: 81 },
-  { name: "Jean-Philippe Mateta",initials: "JPM", position: "FW", country: "France",      club: "Crystal Palace",     fk: 72, pk: 79 },
-  { name: "Ollie Watkins",       initials: "OW",  position: "FW", country: "England",     club: "Aston Villa",        fk: 76, pk: 81 },
-  { name: "Leon Bailey",         initials: "LB",  position: "FW", country: "Jamaica",     club: "Aston Villa",        fk: 80, pk: 74 },
-  { name: "Jhon Durán",          initials: "JDu", position: "FW", country: "Colombia",    club: "Aston Villa",        fk: 71, pk: 80 },
-  { name: "Brennan Johnson",     initials: "BJ",  position: "FW", country: "Wales",       club: "Tottenham",          fk: 74, pk: 72 },
-  { name: "Dejan Kulusevski",    initials: "DK",  position: "MF", country: "Sweden",      club: "Tottenham",          fk: 79, pk: 77 },
-  { name: "James Maddison",      initials: "JM",  position: "MF", country: "England",     club: "Tottenham",          fk: 87, pk: 82 },
-  { name: "Takefusa Kubo",       initials: "TK",  position: "FW", country: "Japan",       club: "Real Sociedad",      fk: 82, pk: 78 },
-  { name: "Jamal Musiala",       initials: "JMu", position: "MF", country: "Germany",     club: "Bayern Munich",      fk: 84, pk: 80 },
-  { name: "Florian Wirtz",       initials: "FW",  position: "MF", country: "Germany",     club: "Bayer Leverkusen",   fk: 88, pk: 83 },
-  { name: "Leroy Sané",          initials: "LSa", position: "FW", country: "Germany",     club: "Bayern Munich",      fk: 82, pk: 78 },
-  { name: "Kingsley Coman",      initials: "KC",  position: "FW", country: "France",      club: "Bayern Munich",      fk: 78, pk: 75 },
-  { name: "Thomas Müller",       initials: "TM",  position: "FW", country: "Germany",     club: "Bayern Munich",      fk: 75, pk: 72 },
-  { name: "Granit Xhaka",        initials: "GX",  position: "MF", country: "Switzerland", club: "Bayer Leverkusen",   fk: 86, pk: 79 },
-  { name: "Adam Hlozek",         initials: "AH",  position: "FW", country: "Czech Rep",   club: "Bayer Leverkusen",   fk: 72, pk: 70 },
-  { name: "Jonathan David",      initials: "JDa", position: "FW", country: "Canada",      club: "Lille",              fk: 79, pk: 85 },
-  { name: "Evan Ferguson",       initials: "EF",  position: "FW", country: "Ireland",     club: "Brighton",           fk: 70, pk: 78 },
-  { name: "Dani Olmo",           initials: "DO",  position: "MF", country: "Spain",       club: "Barcelona",          fk: 84, pk: 79 },
-  { name: "Pedri",               initials: "Ped", position: "MF", country: "Spain",       club: "Barcelona",          fk: 83, pk: 78 },
-  { name: "Gavi",                initials: "Gav", position: "MF", country: "Spain",       club: "Barcelona",          fk: 82, pk: 77 },
-  { name: "Lamine Yamal",        initials: "LY",  position: "FW", country: "Spain",       club: "Barcelona",          fk: 88, pk: 81 },
-  { name: "Raphinha",            initials: "Rap", position: "FW", country: "Brazil",      club: "Barcelona",          fk: 87, pk: 82 },
-  { name: "Domenico Berardi",    initials: "DB",  position: "FW", country: "Italy",       club: "Sassuolo",           fk: 85, pk: 84 },
-  { name: "Khvicha Kvaratskhelia",initials: "KK", position: "FW", country: "Georgia",     club: "PSG",                fk: 86, pk: 79 },
-  { name: "Ousmane Dembélé",     initials: "OD",  position: "FW", country: "France",      club: "PSG",                fk: 80, pk: 74 },
-  { name: "Bradley Barcola",     initials: "BBa", position: "FW", country: "France",      club: "PSG",                fk: 77, pk: 73 },
-  { name: "Artem Dovbyk",        initials: "AD",  position: "FW", country: "Ukraine",     club: "Roma",               fk: 72, pk: 82 },
-  { name: "Paulo Dybala",        initials: "PD",  position: "FW", country: "Argentina",   club: "Roma",               fk: 88, pk: 87 },
-  { name: "Lorenzo Pellegrini",  initials: "LP",  position: "MF", country: "Italy",       club: "Roma",               fk: 84, pk: 80 },
-  { name: "Luka Modric",         initials: "LMo", position: "MF", country: "Croatia",     club: "Real Madrid",        fk: 85, pk: 78 },
-  { name: "Jude Bellingham",     initials: "JB",  position: "MF", country: "England",     club: "Real Madrid",        fk: 84, pk: 83 },
-  { name: "Rodrygo",             initials: "Rod", position: "FW", country: "Brazil",      club: "Real Madrid",        fk: 80, pk: 78 },
-  { name: "Nicola Zalewski",     initials: "NZ",  position: "MF", country: "Poland",      club: "Inter Milan",        fk: 79, pk: 73 },
-  { name: "Hakan Çalhanoğlu",    initials: "HC",  position: "MF", country: "Turkey",      club: "Inter Milan",        fk: 87, pk: 85 },
-  { name: "Ivan Toney",           initials: "IT",  position: "FW", country: "England",     club: "Al-Ahli",            fk: 71, pk: 89 },
-  { name: "Federico Dimarco",    initials: "FD",  position: "DF", country: "Italy",       club: "Inter Milan",        fk: 85, pk: 73 },
-  { name: "Kenan Karaman",       initials: "KeK", position: "FW", country: "Turkey",      club: "Galatasaray",        fk: 76, pk: 80 },
-  { name: "Mauro Icardi",        initials: "MI",  position: "FW", country: "Argentina",   club: "Galatasaray",        fk: 70, pk: 86 },
-  { name: "Patrick Schick",      initials: "PS",  position: "FW", country: "Czech Rep",   club: "Bayer Leverkusen",   fk: 78, pk: 83 },
-  { name: "Serge Gnabry",        initials: "SG",  position: "FW", country: "Germany",     club: "Bayern Munich",      fk: 78, pk: 74 },
-  { name: "Amine Gouiri",        initials: "AmG", position: "FW", country: "Algeria",     club: "Rennes",             fk: 82, pk: 79 },
-  { name: "Wissam Ben Yedder",   initials: "WBY", position: "FW", country: "France",      club: "Monaco",             fk: 81, pk: 88 },
-  { name: "Elye Wahi",           initials: "EW",  position: "FW", country: "France",      club: "Marseille",          fk: 74, pk: 78 },
-  { name: "Mason Mount",         initials: "MMo", position: "MF", country: "England",     club: "Manchester United",  fk: 83, pk: 80 },
-  { name: "Pedro Neto",          initials: "PN",  position: "FW", country: "Portugal",    club: "Chelsea",            fk: 80, pk: 75 },
-  { name: "Mikel Oyarzabal",     initials: "MOy", position: "FW", country: "Spain",       club: "Real Sociedad",      fk: 83, pk: 85 },
-  { name: "Vinícius Tobias",     initials: "VT",  position: "DF", country: "Brazil",      club: "Real Madrid",        fk: 72, pk: 68 },
-  { name: "Neymar Jr",           initials: "Ney", position: "FW", country: "Brazil",      club: "Al-Hilal",           fk: 92, pk: 90 },
+  { name: "Gabriel Martinelli",  initials: "GM2", position: "FW", country: "Brazil",      club: "Arsenal",            fk: 75, pk: 73 },
+  { name: "Rodrygo",             initials: "Rod", position: "FW", country: "Brazil",      club: "Real Madrid",        fk: 78, pk: 76 },
+  { name: "Kai Havertz",         initials: "KH",  position: "FW", country: "Germany",     club: "Arsenal",            fk: 78, pk: 79 },
+  { name: "Leroy Sané",          initials: "LS",  position: "FW", country: "Germany",     club: "Bayern Munich",      fk: 82, pk: 76 },
+  { name: "Sadio Mané",          initials: "SM",  position: "FW", country: "Senegal",     club: "Al-Nassr",           fk: 80, pk: 76 },
+  { name: "Raheem Sterling",     initials: "RS",  position: "FW", country: "England",     club: "Arsenal",            fk: 78, pk: 74 },
+  { name: "Lorenzo Pellegrini",  initials: "LP",  position: "MF", country: "Italy",       club: "Roma",               fk: 85, pk: 78 },
+  { name: "Niclas Füllkrug",     initials: "NF",  position: "FW", country: "Germany",     club: "West Ham",           fk: 74, pk: 84 },
+  { name: "Paulo Dybala",        initials: "PD",  position: "FW", country: "Argentina",   club: "Roma",               fk: 86, pk: 85 },
+  { name: "Federico Valverde",   initials: "FV",  position: "MF", country: "Uruguay",     club: "Real Madrid",        fk: 80, pk: 76 },
+  { name: "Lamine Yamal",        initials: "LY",  position: "FW", country: "Spain",       club: "Barcelona",          fk: 84, pk: 78 },
+  { name: "Nico Williams",       initials: "NW",  position: "FW", country: "Spain",       club: "Athletic Bilbao",    fk: 80, pk: 74 },
+  { name: "Xavi Simons",         initials: "XS",  position: "MF", country: "Netherlands", club: "PSG",                fk: 82, pk: 78 },
+  { name: "Warren Zaïre-Emery",  initials: "WZE", position: "MF", country: "France",      club: "PSG",                fk: 76, pk: 72 },
+  { name: "Endrick",             initials: "End", position: "FW", country: "Brazil",      club: "Real Madrid",        fk: 74, pk: 80 },
+  { name: "Mathys Tel",          initials: "MT",  position: "FW", country: "France",      club: "Bayern Munich",      fk: 72, pk: 76 },
+  { name: "Evan Ferguson",       initials: "EF",  position: "FW", country: "Ireland",     club: "Brighton",           fk: 71, pk: 82 },
+  { name: "Karim Adeyemi",       initials: "KA",  position: "FW", country: "Germany",     club: "Borussia Dortmund",  fk: 76, pk: 72 },
+  { name: "Désiré Doué",         initials: "DD",  position: "FW", country: "France",      club: "PSG",                fk: 78, pk: 74 },
+  { name: "Michael Olise",       initials: "MO",  position: "FW", country: "France",      club: "Bayern Munich",      fk: 82, pk: 76 },
+  { name: "Rasmus Højlund",      initials: "RH",  position: "FW", country: "Denmark",     club: "Manchester United",  fk: 70, pk: 82 },
+  { name: "Ivan Toney",          initials: "IT",  position: "FW", country: "England",     club: "Al-Ahli",            fk: 76, pk: 86 },
+  { name: "Marcus Thuram",       initials: "MTh", position: "FW", country: "France",      club: "Inter Milan",        fk: 72, pk: 80 },
+  { name: "Sébastien Haller",    initials: "SH",  position: "FW", country: "Ivory Coast", club: "Borussia Dortmund",  fk: 68, pk: 78 },
+  { name: "Tammy Abraham",       initials: "TA",  position: "FW", country: "England",     club: "AC Milan",           fk: 69, pk: 78 },
+  { name: "Gonçalo Ramos",       initials: "GR",  position: "FW", country: "Portugal",    club: "PSG",                fk: 72, pk: 82 },
+  { name: "Artem Dovbyk",        initials: "ArD", position: "FW", country: "Ukraine",     club: "Roma",               fk: 70, pk: 80 },
+  { name: "Mateo Retegui",       initials: "MRe", position: "FW", country: "Italy",       club: "Atalanta",           fk: 71, pk: 82 },
+  { name: "Santiago Giménez",    initials: "SG2", position: "FW", country: "Mexico",      club: "AC Milan",           fk: 70, pk: 82 },
+  { name: "Ollie Watkins",       initials: "OW",  position: "FW", country: "England",     club: "Aston Villa",        fk: 72, pk: 82 },
+  { name: "Erling Braut Haaland",initials: "EBH", position: "FW", country: "Norway",      club: "Manchester City",    fk: 63, pk: 96 },
+  { name: "Benjamin Šeško",      initials: "BŠ",  position: "FW", country: "Slovenia",    club: "RB Leipzig",         fk: 70, pk: 82 },
+  { name: "Cole Palmer",         initials: "CP",  position: "MF", country: "England",     club: "Chelsea",            fk: 84, pk: 84 },
+  { name: "Jude Bellingham",     initials: "JB",  position: "MF", country: "England",     club: "Real Madrid",        fk: 82, pk: 76 },
+  { name: "Pedri González",      initials: "PeG", position: "MF", country: "Spain",       club: "Barcelona",          fk: 80, pk: 72 },
+  { name: "Jamal Musiala",       initials: "JMu", position: "MF", country: "Germany",     club: "Bayern Munich",      fk: 84, pk: 76 },
+  { name: "Arda Güler",          initials: "ArG", position: "MF", country: "Turkey",      club: "Real Madrid",        fk: 86, pk: 78 },
+  { name: "Goncalo Inacio",      initials: "GI",  position: "FW", country: "Portugal",    club: "Sporting CP",        fk: 62, pk: 59 },
+  { name: "Takefusa Kubo",       initials: "TK",  position: "FW", country: "Japan",       club: "Real Sociedad",      fk: 80, pk: 74 },
+  { name: "Claudio Echeverri",   initials: "CE",  position: "FW", country: "Argentina",   club: "Manchester City",    fk: 74, pk: 70 },
+  { name: "Bryan Zaragoza",      initials: "BZ",  position: "FW", country: "Spain",       club: "Bayern Munich",      fk: 76, pk: 70 },
+  { name: "Neymar Jr",           initials: "NJr", position: "FW", country: "Brazil",      club: "Al-Hilal",           fk: 88, pk: 86 },
+  { name: "Lionel Messi",        initials: "LMe", position: "FW", country: "Argentina",   club: "Inter Miami",        fk: 94, pk: 90 },
+  { name: "Cristiano Ronaldo",   initials: "CR7", position: "FW", country: "Portugal",    club: "Al-Nassr",           fk: 84, pk: 92 },
+  { name: "Zlatan Ibrahimović",  initials: "ZI",  position: "FW", country: "Sweden",      club: "AC Milan",           fk: 88, pk: 84 },
+  { name: "Karim Benzema",       initials: "KB",  position: "FW", country: "France",      club: "Al-Ittihad",         fk: 84, pk: 88 },
+  { name: "Luis Suárez",         initials: "LuS", position: "FW", country: "Uruguay",     club: "River Plate",        fk: 76, pk: 82 },
+  { name: "Pierre-Emerick Aubameyang", initials: "PEA", position: "FW", country: "Gabon", club: "Marseille",         fk: 76, pk: 78 },
+  { name: "Lorenzo Insigne",     initials: "LIn", position: "FW", country: "Italy",       club: "Toronto FC",         fk: 84, pk: 82 },
+  { name: "Dries Mertens",       initials: "DM",  position: "FW", country: "Belgium",     club: "Galatasaray",        fk: 82, pk: 80 },
+  { name: "Franck Ribéry",       initials: "FR",  position: "FW", country: "France",      club: "Salernitana",        fk: 80, pk: 74 },
+  { name: "Gareth Bale",         initials: "GBa", position: "FW", country: "Wales",       club: "Retired",            fk: 84, pk: 80 },
+  { name: "Eden Hazard",         initials: "EHz", position: "FW", country: "Belgium",     club: "Retired",            fk: 82, pk: 76 },
+  { name: "Diego Costa",         initials: "DCo", position: "FW", country: "Spain",       club: "Wolverhampton",      fk: 72, pk: 80 },
+  { name: "Romelu Lukaku",       initials: "RLu", position: "FW", country: "Belgium",     club: "Napoli",             fk: 68, pk: 82 },
+  { name: "Wissam Ben Yedder",   initials: "WBY", position: "FW", country: "France",      club: "Free Agent",         fk: 72, pk: 82 },
+  { name: "Edin Džeko",          initials: "EDž", position: "FW", country: "Bosnia",      club: "Fenerbahçe",         fk: 72, pk: 78 },
+  { name: "Roberto Firmino",     initials: "RF",  position: "FW", country: "Brazil",      club: "Al-Ahli",            fk: 74, pk: 76 },
+  { name: "Thomas Müller",       initials: "TMü", position: "FW", country: "Germany",     club: "LA Galaxy",          fk: 76, pk: 72 },
+  { name: "Sergio Agüero",       initials: "SAg", position: "FW", country: "Argentina",   club: "Retired",            fk: 80, pk: 86 },
+  { name: "Iago Aspas",          initials: "IAsp",position: "FW", country: "Spain",       club: "Celta Vigo",         fk: 84, pk: 82 },
+  { name: "Sebastián Villa",     initials: "SV",  position: "FW", country: "Argentina",   club: "Boca Juniors",       fk: 80, pk: 76 },
+  { name: "Memphis Depay",       initials: "MDe", position: "FW", country: "Netherlands", club: "Corinthians",        fk: 82, pk: 78 },
+  { name: "Mario Götze",         initials: "MGö", position: "FW", country: "Germany",     club: "Eintracht Frankfurt",fk: 80, pk: 76 },
+  { name: "Ivan Rakitić",        initials: "IRak",position: "MF", country: "Croatia",     club: "Hajduk Split",       fk: 84, pk: 76 },
+  { name: "Thiago Alcántara",    initials: "ThA", position: "MF", country: "Spain",       club: "Retired",            fk: 80, pk: 72 },
+  { name: "James Rodríguez",     initials: "JRod",position: "MF", country: "Colombia",    club: "Rayo Vallecano",     fk: 88, pk: 80 },
+  { name: "Christian Eriksen",   initials: "ChE", position: "MF", country: "Denmark",     club: "Manchester United",  fk: 88, pk: 80 },
+  { name: "Isco",                initials: "Isc", position: "MF", country: "Spain",       club: "Betis",              fk: 84, pk: 78 },
+  { name: "Marco Verratti",      initials: "MVer",position: "MF", country: "Italy",       club: "Al-Arabi",           fk: 78, pk: 70 },
+  { name: "Toni Kroos",          initials: "TKr", position: "MF", country: "Germany",     club: "Retired",            fk: 90, pk: 78 },
+  { name: "David Silva",         initials: "DSi", position: "MF", country: "Spain",       club: "Retired",            fk: 84, pk: 76 },
+  { name: "Luka Modrić",         initials: "LMo", position: "MF", country: "Croatia",     club: "Real Madrid",        fk: 86, pk: 76 },
 ];
 
-// 25 real active Goalkeepers (is_gk = true) — FKS & PKS stats 1-99
+// 25 Goalkeepers — FKS & PKS stats 1-99
 const GOALKEEPERS: Omit<PlayerSeed, "is_gk">[] = [
-  { name: "Alisson Becker",      initials: "AB",  position: "GK", country: "Brazil",      club: "Liverpool",          fks: 89, pks: 91 },
-  { name: "Ederson",             initials: "Ede", position: "GK", country: "Brazil",      club: "Manchester City",    fks: 85, pks: 88 },
-  { name: "Thibaut Courtois",    initials: "TC",  position: "GK", country: "Belgium",     club: "Real Madrid",        fks: 90, pks: 92 },
-  { name: "Manuel Neuer",        initials: "MN",  position: "GK", country: "Germany",     club: "Bayern Munich",      fks: 86, pks: 87 },
-  { name: "Marc-André ter Stegen",initials: "MTS",position: "GK", country: "Germany",     club: "Barcelona",          fks: 88, pks: 89 },
-  { name: "Jordan Pickford",     initials: "JPi", position: "GK", country: "England",     club: "Everton",            fks: 81, pks: 85 },
-  { name: "Gianluigi Donnarumma",initials: "GD",  position: "GK", country: "Italy",       club: "PSG",                fks: 88, pks: 90 },
-  { name: "Mike Maignan",        initials: "MiM", position: "GK", country: "France",      club: "AC Milan",           fks: 87, pks: 88 },
-  { name: "Jan Oblak",           initials: "JO",  position: "GK", country: "Slovenia",    club: "Atlético Madrid",    fks: 91, pks: 93 },
-  { name: "André Onana",         initials: "AO",  position: "GK", country: "Cameroon",    club: "Manchester United",  fks: 84, pks: 86 },
-  { name: "Yann Sommer",         initials: "YS",  position: "GK", country: "Switzerland", club: "Inter Milan",        fks: 85, pks: 87 },
-  { name: "Kevin Trapp",         initials: "KT",  position: "GK", country: "Germany",     club: "Eintracht Frankfurt",fks: 82, pks: 84 },
-  { name: "Bernd Leno",          initials: "BL",  position: "GK", country: "Germany",     club: "Fulham",             fks: 80, pks: 83 },
-  { name: "Nick Pope",           initials: "NP",  position: "GK", country: "England",     club: "Newcastle",          fks: 83, pks: 86 },
-  { name: "Aaron Ramsdale",      initials: "AR",  position: "GK", country: "England",     club: "Southampton",        fks: 79, pks: 82 },
-  { name: "Sam Johnstone",       initials: "SJ",  position: "GK", country: "England",     club: "Crystal Palace",     fks: 78, pks: 80 },
-  { name: "Mat Ryan",            initials: "MaR", position: "GK", country: "Australia",   club: "Real Sociedad",      fks: 79, pks: 81 },
-  { name: "Wojciech Szczęsny",   initials: "WSz", position: "GK", country: "Poland",      club: "Barcelona",          fks: 84, pks: 86 },
-  { name: "Gregor Kobel",        initials: "GK",  position: "GK", country: "Switzerland", club: "Borussia Dortmund",  fks: 83, pks: 85 },
-  { name: "Lukáš Hrádecký",      initials: "LH",  position: "GK", country: "Finland",     club: "Bayer Leverkusen",   fks: 82, pks: 84 },
-  { name: "Peter Gulácsi",       initials: "PG",  position: "GK", country: "Hungary",     club: "RB Leipzig",         fks: 80, pks: 83 },
-  { name: "David Raya",          initials: "DR",  position: "GK", country: "Spain",       club: "Arsenal",            fks: 86, pks: 88 },
-  { name: "Diogo Costa",         initials: "DC",  position: "GK", country: "Portugal",    club: "Porto",              fks: 85, pks: 89 },
-  { name: "Unai Simón",          initials: "US",  position: "GK", country: "Spain",       club: "Athletic Bilbao",    fks: 83, pks: 85 },
-  { name: "Rui Patrício",        initials: "RP",  position: "GK", country: "Portugal",    club: "Roma",               fks: 81, pks: 83 },
+  { name: "Alisson Becker",      initials: "AB",  position: "GK", country: "Brazil",      club: "Liverpool",          fks: 86, pks: 88 },
+  { name: "Manuel Neuer",        initials: "MN",  position: "GK", country: "Germany",     club: "Bayern Munich",      fks: 88, pks: 86 },
+  { name: "Ederson",             initials: "Ed",  position: "GK", country: "Brazil",      club: "Manchester City",    fks: 84, pks: 86 },
+  { name: "Marc-André ter Stegen",initials:"MTS", position: "GK", country: "Germany",     club: "Barcelona",          fks: 86, pks: 84 },
+  { name: "Thibaut Courtois",    initials: "TC",  position: "GK", country: "Belgium",     club: "Real Madrid",        fks: 88, pks: 90 },
+  { name: "Jan Oblak",           initials: "JO",  position: "GK", country: "Slovenia",    club: "Atlético Madrid",    fks: 86, pks: 88 },
+  { name: "Gianluigi Donnarumma",initials: "GD",  position: "GK", country: "Italy",       club: "PSG",                fks: 84, pks: 86 },
+  { name: "Andriy Lunin",        initials: "ALu", position: "GK", country: "Ukraine",     club: "Real Madrid",        fks: 80, pks: 82 },
+  { name: "Emiliano Martínez",   initials: "EM",  position: "GK", country: "Argentina",   club: "Aston Villa",        fks: 84, pks: 92 },
+  { name: "Mike Maignan",        initials: "MM2", position: "GK", country: "France",      club: "AC Milan",           fks: 84, pks: 86 },
+  { name: "Fernando Muslera",    initials: "FM",  position: "GK", country: "Uruguay",     club: "Galatasaray",        fks: 78, pks: 80 },
+  { name: "Kasper Schmeichel",   initials: "KS",  position: "GK", country: "Denmark",     club: "Anderlecht",         fks: 80, pks: 82 },
+  { name: "Hugo Lloris",         initials: "HL",  position: "GK", country: "France",      club: "Retired",            fks: 84, pks: 82 },
+  { name: "David de Gea",        initials: "DDG", position: "GK", country: "Spain",       club: "Free Agent",         fks: 80, pks: 88 },
+  { name: "Claudio Bravo",       initials: "CB2", position: "GK", country: "Chile",       club: "Real Betis",         fks: 76, pks: 78 },
+  { name: "Samir Handanović",    initials: "SH2", position: "GK", country: "Slovenia",    club: "Retired",            fks: 78, pks: 80 },
+  { name: "Neto",                initials: "Net", position: "GK", country: "Brazil",      club: "Bournemouth",        fks: 74, pks: 78 },
+  { name: "Paulo Gazzaniga",     initials: "PG",  position: "GK", country: "Argentina",   club: "Girona",             fks: 74, pks: 76 },
+  { name: "Alphonse Areola",     initials: "AA",  position: "GK", country: "France",      club: "West Ham",           fks: 76, pks: 80 },
+  { name: "Stefan Ortega",       initials: "SO",  position: "GK", country: "Germany",     club: "Manchester City",    fks: 78, pks: 80 },
+  { name: "Diogo Costa",         initials: "DC2", position: "GK", country: "Portugal",    club: "Porto",              fks: 82, pks: 84 },
+  { name: "André Onana",         initials: "AO",  position: "GK", country: "Cameroon",    club: "Manchester United",  fks: 80, pks: 82 },
+  { name: "Bono",                initials: "Bon", position: "GK", country: "Morocco",     club: "Sevilla",            fks: 78, pks: 80 },
+  { name: "Guglielmo Vicario",   initials: "GV",  position: "GK", country: "Italy",       club: "Tottenham",          fks: 80, pks: 82 },
+  { name: "Pedro Ortiz",         initials: "PO",  position: "GK", country: "Spain",       club: "Atletico Madrid B",  fks: 72, pks: 74 },
 ];
 
 export function seedDatabase(): void {
   const existingCount = (
-    db.prepare("SELECT COUNT(*) as cnt FROM players_base").get() as { cnt: number }
+    db.prepare("SELECT COUNT(*) as cnt FROM players_base WHERE is_bench_pool=0").get() as { cnt: number }
   ).cnt;
 
   if (existingCount >= 125) {
-    logger.info({ existingCount }, "Database already seeded — skipping");
+    logger.info({ existingCount }, "Database already seeded — skipping Gold Cards");
+  } else {
+    logger.info("Seeding 125 Gold Cards into players_base…");
+
+    const insert = db.prepare(`
+      INSERT OR IGNORE INTO players_base
+        (name, initials, position, country, club, is_gk, fk, pk, fks, pks, overall, tactical_position, is_bench_pool)
+      VALUES
+        (@name, @initials, @position, @country, @club, @is_gk, @fk, @pk, @fks, @pks, @overall, @tactical_position, 0)
+    `);
+
+    const insertMany = db.transaction((players: PlayerSeed[]) => {
+      for (const p of players) {
+        const overall = p.is_gk
+          ? Math.round(((p.fks ?? 0) + (p.pks ?? 0)) / 2)
+          : Math.round(((p.fk ?? 0) + (p.pk ?? 0)) / 2);
+        const tacticalPosition = p.is_gk
+          ? "GK"
+          : p.position === "MF"
+          ? "CM"
+          : "FW";
+        insert.run({
+          name: p.name, initials: p.initials, position: p.position,
+          country: p.country, club: p.club,
+          is_gk: p.is_gk ? 1 : 0,
+          fk: p.fk ?? null, pk: p.pk ?? null,
+          fks: p.fks ?? null, pks: p.pks ?? null,
+          overall, tactical_position: tacticalPosition,
+        });
+      }
+    });
+
+    const shooters: PlayerSeed[] = SHOOTERS.map((s) => ({ ...s, is_gk: false }));
+    const goalkeepers: PlayerSeed[] = GOALKEEPERS.map((g) => ({ ...g, is_gk: true }));
+    const uniqueShooters = Array.from(
+      new Map(shooters.map((s) => [s.name, s])).values(),
+    ).slice(0, 100);
+
+    insertMany([...uniqueShooters, ...goalkeepers]);
+  }
+
+  // Seed bench player pool
+  seedBenchPool();
+
+  logger.info("Database seeding complete");
+}
+
+function seedBenchPool(): void {
+  const benchCount = (
+    db.prepare("SELECT COUNT(*) as cnt FROM players_base WHERE is_bench_pool=1").get() as { cnt: number }
+  ).cnt;
+
+  if (benchCount >= BENCH_PLAYERS.length) {
+    logger.info({ benchCount }, "Bench pool already seeded — skipping");
     return;
   }
 
-  logger.info("Seeding 125 Gold Cards into players_base…");
+  logger.info({ count: BENCH_PLAYERS.length }, "Seeding bench player pool…");
 
-  // INSERT OR IGNORE: UNIQUE constraint on name makes this idempotent
   const insert = db.prepare(`
-    INSERT OR IGNORE INTO players_base (name, initials, position, country, club, is_gk, fk, pk, fks, pks)
-    VALUES (@name, @initials, @position, @country, @club, @is_gk, @fk, @pk, @fks, @pks)
+    INSERT OR IGNORE INTO players_base
+      (name, initials, position, country, club, is_gk, fk, pk, fks, pks, overall, tactical_position, is_bench_pool)
+    VALUES
+      (@name, @initials, @position, @country, @club, @is_gk, @fk, @pk, @fks, @pks, @overall, @tactical_position, 1)
   `);
 
-  const insertMany = db.transaction((players: PlayerSeed[]) => {
+  const insertMany = db.transaction((players: BenchPlayer[]) => {
     for (const p of players) {
       insert.run({
-        name:     p.name,
+        name: p.name,
         initials: p.initials,
-        position: p.position,
-        country:  p.country,
-        club:     p.club,
-        is_gk:    p.is_gk ? 1 : 0,
-        fk:       p.fk  ?? null,
-        pk:       p.pk  ?? null,
-        fks:      p.fks ?? null,
-        pks:      p.pks ?? null,
+        position: p.tactical_position,
+        country: p.country,
+        club: p.club,
+        is_gk: p.is_gk ? 1 : 0,
+        fk: p.fk ?? null,
+        pk: p.pk ?? null,
+        fks: p.fks ?? null,
+        pks: p.pks ?? null,
+        overall: p.overall,
+        tactical_position: p.tactical_position,
       });
     }
   });
 
-  const shooters: PlayerSeed[] = SHOOTERS.map(s => ({ ...s, is_gk: false }));
-  const goalkeepers: PlayerSeed[] = GOALKEEPERS.map(g => ({ ...g, is_gk: true }));
-
-  // Deduplicate shooters by name in case of duplicates in seed list
-  const uniqueShooters = Array.from(
-    new Map(shooters.map(s => [s.name, s])).values()
-  ).slice(0, 100);
-
-  if (uniqueShooters.length < 100) {
-    logger.warn({ count: uniqueShooters.length }, "Shooter seed has fewer than 100 unique entries");
-  }
-
-  insertMany([...uniqueShooters, ...goalkeepers]);
-
-  const finalCount = (
-    db.prepare("SELECT COUNT(*) as cnt FROM players_base").get() as { cnt: number }
-  ).cnt;
-  logger.info({ finalCount }, "Seeding complete");
+  insertMany(BENCH_PLAYERS);
+  logger.info("Bench pool seeding complete");
 }
