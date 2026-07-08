@@ -33,7 +33,7 @@ db.exec(`
     fks               INTEGER,
     pks               INTEGER,
     overall           INTEGER,
-    tactical_position TEXT    NOT NULL DEFAULT 'FW',
+    tactical_position TEXT    NOT NULL DEFAULT 'ST',
     is_bench_pool     INTEGER NOT NULL DEFAULT 0
   );
 

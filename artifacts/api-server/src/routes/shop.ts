@@ -12,6 +12,7 @@ router.use(requireAuth);
 // ─── Pack definitions ─────────────────────────────────────────────────────────
 
 const PACK_CONFIG = {
+  starter:   { count: 11, cost: 0,   pool: "bench",   label: "Free Starter Pack (11 Cards)", desc: "Claim your starting squad of 11 bench players — free for every new manager!" },
   random_1:  { count: 1, cost: 500,  pool: "mixed",   label: "Random Pack (1 Card)",  desc: "One surprise Gold Card from the full pool." },
   random_3:  { count: 3, cost: 1200, pool: "mixed",   label: "Random Pack (3 Cards)", desc: "Three surprise Gold Cards from the full pool." },
   shooter_1: { count: 1, cost: 700,  pool: "shooter", label: "Striker Pack (1 Card)", desc: "One shooter guaranteed — no GKs." },
@@ -52,6 +53,8 @@ router.post("/buy", (req: AuthRequest, res) => {
     poolQuery = "SELECT * FROM players_base WHERE is_gk=0 AND is_bench_pool=0";
   } else if (pack.pool === "gk") {
     poolQuery = "SELECT * FROM players_base WHERE is_gk=1 AND is_bench_pool=0";
+  } else if (pack.pool === "bench") {
+    poolQuery = "SELECT * FROM players_base WHERE is_bench_pool=1";
   } else {
     poolQuery = "SELECT * FROM players_base WHERE is_bench_pool=0";
   }
@@ -63,8 +66,9 @@ router.post("/buy", (req: AuthRequest, res) => {
   }
 
   const buyTx = db.transaction(() => {
-    const user = db.prepare("SELECT coins FROM users WHERE id=?").get(userId) as { coins: number } | undefined;
+    const user = db.prepare("SELECT coins, has_starter_pack FROM users WHERE id=?").get(userId) as { coins: number; has_starter_pack: number } | undefined;
     if (!user) throw new Error("USER_NOT_FOUND");
+    if (packType === "starter" && user.has_starter_pack) throw new Error("STARTER_ALREADY_CLAIMED");
     if (user.coins < pack.cost) throw new Error(`INSUFFICIENT_COINS:${user.coins}:${pack.cost}`);
 
     // Snapshot which player_ids user already owns (to detect duplicates)
@@ -75,6 +79,9 @@ router.post("/buy", (req: AuthRequest, res) => {
 
     const newCoins = user.coins - pack.cost;
     db.prepare("UPDATE users SET coins=? WHERE id=?").run(newCoins, userId);
+    if (packType === "starter") {
+      db.prepare("UPDATE users SET has_starter_pack=1 WHERE id=?").run(userId);
+    }
 
     const drawn = pickRandomN(pool, pack.count);
     const insertInv = db.prepare("INSERT INTO user_inventory (user_id, player_id) VALUES (?,?)");
@@ -141,6 +148,8 @@ router.post("/buy", (req: AuthRequest, res) => {
       res.status(422).json({ error: `Not enough coins. You have ${have}, pack costs ${need}.` });
     } else if (msg === "USER_NOT_FOUND") {
       res.status(404).json({ error: "User not found" });
+    } else if (msg === "STARTER_ALREADY_CLAIMED") {
+      res.status(409).json({ error: "Starter pack has already been claimed on this account." });
     } else {
       throw err;
     }

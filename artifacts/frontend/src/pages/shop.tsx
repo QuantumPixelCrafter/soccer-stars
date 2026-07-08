@@ -303,15 +303,22 @@ function RevealCard({ player, revealed }: { player: PlayerCard; revealed: boolea
   }
 
   const ovr = player.overall ?? 70;
-  const color = ovr >= 85 ? "#ff6b35" : ovr >= 78 ? "#ffd700" : ovr >= 70 ? "#c0c0c0" : "#cd7f32";
+  const color = ovr >= 85 ? "#ff6b35" : ovr >= 80 ? "#ffd700" : ovr >= 70 ? "#c0c0c0" : "#cd7f32";
+  const revealGradient = isBenchPool
+    ? "linear-gradient(135deg, #3a3a4a, #5a5a6a, #4a4a5a)"
+    : ovr >= 85
+    ? "linear-gradient(135deg, #5a1805, #aa3a10, #ff6b35, #ff8855, #c04015, #ff6b35, #aa3a10, #5a1805)"
+    : ovr >= 80
+    ? "linear-gradient(135deg, #7c5c0a, #d4a20a, #ffd700, #ffe566, #c9922a, #ffd700, #d4a20a, #7c5c0a)"
+    : ovr >= 70
+    ? "linear-gradient(135deg, #3a3a45, #7a7a88, #b8b8c8, #d8d8e8, #8a8a98, #b8b8c8, #7a7a88, #3a3a45)"
+    : "linear-gradient(135deg, #5a3010, #8a5520, #cd7f32, #e09050, #9a6028, #cd7f32, #8a5520, #5a3010)";
 
   return (
     <div
       style={{
         width: "100%", height: "100%", borderRadius: "14px", overflow: "hidden",
-        background: isBenchPool
-          ? "linear-gradient(135deg, #3a3a4a, #5a5a6a, #4a4a5a)"
-          : "linear-gradient(135deg, #7c5c0a, #d4a20a, #ffd700, #ffe566, #c9922a, #ffd700, #d4a20a, #7c5c0a)",
+        background: revealGradient,
         backgroundSize: "200% 200%",
         animation: "goldShimmer 3s ease-in-out infinite",
         border: `2px solid ${color}60`,

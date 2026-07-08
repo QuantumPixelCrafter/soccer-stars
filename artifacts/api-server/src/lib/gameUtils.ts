@@ -16,6 +16,9 @@ export interface PlayerBaseRow {
   pk: number | null;
   fks: number | null;
   pks: number | null;
+  overall: number | null;
+  tactical_position: string;
+  is_bench_pool: number; // 0 = Gold Card pool, 1 = bench pool
 }
 
 export interface EffectiveShooterStats {

@@ -13,16 +13,36 @@ interface PlayerCardProps {
 
 function getRatingColor(overall: number): string {
   if (overall >= 85) return "#ff6b35";
-  if (overall >= 78) return "#ffd700";
+  if (overall >= 80) return "#ffd700";
   if (overall >= 70) return "#c0c0c0";
   return "#cd7f32";
 }
 
 function getTierLabel(overall: number): string {
   if (overall >= 85) return "ELITE";
-  if (overall >= 78) return "GOLD";
+  if (overall >= 80) return "GOLD";
   if (overall >= 70) return "SILVER";
-  return "BENCH";
+  return "BRONZE";
+}
+
+function getCardGradient(overall: number, isBenchPool: boolean): string {
+  if (isBenchPool) {
+    return "linear-gradient(135deg, #3a3a4a 0%, #5a5a6a 25%, #4a4a5a 50%, #6a6a7a 75%, #3a3a4a 100%)";
+  }
+  if (overall >= 85) {
+    // Elite — orange/flame
+    return "linear-gradient(135deg, #5a1805 0%, #aa3a10 15%, #ff6b35 30%, #ff8855 45%, #c04015 60%, #ff6b35 75%, #aa3a10 90%, #5a1805 100%)";
+  }
+  if (overall >= 80) {
+    // Gold
+    return "linear-gradient(135deg, #7c5c0a 0%, #d4a20a 15%, #ffd700 30%, #ffe566 45%, #c9922a 60%, #ffd700 75%, #d4a20a 90%, #7c5c0a 100%)";
+  }
+  if (overall >= 70) {
+    // Silver
+    return "linear-gradient(135deg, #3a3a45 0%, #7a7a88 15%, #b8b8c8 30%, #d8d8e8 45%, #8a8a98 60%, #b8b8c8 75%, #7a7a88 90%, #3a3a45 100%)";
+  }
+  // Bronze fallback
+  return "linear-gradient(135deg, #5a3010 0%, #8a5520 15%, #cd7f32 30%, #e09050 45%, #9a6028 60%, #cd7f32 75%, #8a5520 90%, #5a3010 100%)";
 }
 
 export function PlayerCard({ player, index = 0, onClick, compact = false, isSelected = false }: PlayerCardProps) {
@@ -31,6 +51,7 @@ export function PlayerCard({ player, index = 0, onClick, compact = false, isSele
   const tierLabel = getTierLabel(player.overall ?? 70);
   const isBenchPool = player.is_bench_pool;
 
+  const cardGradient = getCardGradient(player.overall ?? 70, isBenchPool);
   const quickSellValue = Math.floor(((player.overall ?? 70) ** 2) / 70);
 
   return (
@@ -71,14 +92,12 @@ export function PlayerCard({ player, index = 0, onClick, compact = false, isSele
               : "0 8px 32px rgba(0,0,0,0.5)",
           }}
         >
-          {/* Gold metallic gradient background */}
+          {/* Rarity-matched gradient background */}
           <div
             style={{
               position: "absolute",
               inset: 0,
-              background: isBenchPool
-                ? "linear-gradient(135deg, #3a3a4a 0%, #5a5a6a 25%, #4a4a5a 50%, #6a6a7a 75%, #3a3a4a 100%)"
-                : "linear-gradient(135deg, #7c5c0a 0%, #d4a20a 15%, #ffd700 30%, #ffe566 45%, #c9922a 60%, #ffd700 75%, #d4a20a 90%, #7c5c0a 100%)",
+              background: cardGradient,
               backgroundSize: "200% 200%",
               animation: "goldShimmer 4s ease-in-out infinite",
             }}

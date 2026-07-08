@@ -24,7 +24,7 @@ export const BENCH_PLAYERS: BenchPlayer[] = [
   // ── Goalkeepers (10) ──────────────────────────────────────────────────────
   { name: "Jordan Pickford",       initials: "JP",  tactical_position: "GK", country: "England",      club: "Everton",             is_gk: true,  fks: 74, pks: 73, overall: 74 },
   { name: "David Raya",            initials: "DR",  tactical_position: "GK", country: "Spain",        club: "Arsenal",             is_gk: true,  fks: 75, pks: 77, overall: 76 },
-  { name: "Keylor Navas",          initials: "KN",  tactical_position: "GK", country: "Costa Rica",   club: "Newell's Old Boys",   is_gk: true,  fks: 74, pks: 71, overall: 73 },
+  { name: "Keylor Navas",          initials: "KN",  tactical_position: "GK", country: "Costa Rica",   club: "Pumas UNAM",          is_gk: true,  fks: 74, pks: 71, overall: 73 },
   { name: "Lukáš Hrádecký",        initials: "LH",  tactical_position: "GK", country: "Finland",      club: "Bayer Leverkusen",    is_gk: true,  fks: 71, pks: 72, overall: 72 },
   { name: "Unai Simón",            initials: "US",  tactical_position: "GK", country: "Spain",        club: "Athletic Bilbao",     is_gk: true,  fks: 76, pks: 74, overall: 75 },
   { name: "Gregor Kobel",          initials: "GK2", tactical_position: "GK", country: "Switzerland",  club: "Borussia Dortmund",   is_gk: true,  fks: 77, pks: 76, overall: 77 },
@@ -56,12 +56,12 @@ export const BENCH_PLAYERS: BenchPlayer[] = [
   { name: "Alphonso Davies",       initials: "AD",  tactical_position: "LB", country: "Canada",       club: "Bayern Munich",       is_gk: false, fk: 72, pk: 65, overall: 77 },
   { name: "Theo Hernández",        initials: "TH",  tactical_position: "LB", country: "France",       club: "AC Milan",            is_gk: false, fk: 74, pk: 68, overall: 78 },
   { name: "Alejandro Grimaldo",    initials: "AG",  tactical_position: "LB", country: "Spain",        club: "Bayer Leverkusen",    is_gk: false, fk: 73, pk: 67, overall: 76 },
-  { name: "Destiny Udogie",        initials: "DU2", tactical_position: "LB", country: "Italy",        club: "Tottenham",           is_gk: false, fk: 68, pk: 63, overall: 71 },
+  { name: "Destiny Udogie",        initials: "DeU", tactical_position: "LB", country: "Italy",        club: "Tottenham",           is_gk: false, fk: 68, pk: 63, overall: 71 },
   { name: "Lucas Hernández",       initials: "LH2", tactical_position: "LB", country: "France",       club: "PSG",                 is_gk: false, fk: 70, pk: 64, overall: 73 },
 
   // ── Central Midfielders (8) ───────────────────────────────────────────────
   { name: "Joshua Kimmich",        initials: "JK",  tactical_position: "CM", country: "Germany",      club: "Bayern Munich",       is_gk: false, fk: 84, pk: 76, overall: 78 },
-  { name: "Florian Wirtz",         initials: "FW2", tactical_position: "CM", country: "Germany",      club: "Bayern Munich",       is_gk: false, fk: 82, pk: 74, overall: 77 },
+  { name: "Florian Wirtz",         initials: "FlW", tactical_position: "CM", country: "Germany",      club: "Bayern Munich",       is_gk: false, fk: 82, pk: 74, overall: 77 },
   { name: "Pedri",                 initials: "Ped", tactical_position: "CM", country: "Spain",        club: "Barcelona",           is_gk: false, fk: 80, pk: 72, overall: 78 },
   { name: "Gavi",                  initials: "Gav", tactical_position: "CM", country: "Spain",        club: "Barcelona",           is_gk: false, fk: 76, pk: 70, overall: 76 },
   { name: "Bruno Fernandes",       initials: "BF",  tactical_position: "CM", country: "Portugal",     club: "Manchester United",   is_gk: false, fk: 88, pk: 78, overall: 77 },
