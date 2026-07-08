@@ -264,7 +264,7 @@ router.post("/list", requireAuth, (req: AuthRequest, res) => {
 
 // ─── POST /api/market/bid/:id ─────────────────────────────────────────────────
 router.post("/bid/:id", requireAuth, (req: AuthRequest, res) => {
-  const listingId = parseInt(req.params["id"]!, 10);
+  const listingId = parseInt(String(req.params["id"]), 10);
   if (isNaN(listingId)) {
     res.status(400).json({ error: "Invalid listing id" });
     return;
@@ -336,7 +336,7 @@ router.post("/bid/:id", requireAuth, (req: AuthRequest, res) => {
 
 // ─── DELETE /api/market/cancel/:id ───────────────────────────────────────────
 router.delete("/cancel/:id", requireAuth, (req: AuthRequest, res) => {
-  const listingId = parseInt(req.params["id"]!, 10);
+  const listingId = parseInt(String(req.params["id"]), 10);
   if (isNaN(listingId)) {
     res.status(400).json({ error: "Invalid listing id" });
     return;

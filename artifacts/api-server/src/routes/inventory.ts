@@ -109,7 +109,7 @@ router.get("/summary", requireAuth, (req: AuthRequest, res) => {
  * Cannot exchange a card that is currently listed on the market.
  */
 router.post("/exchange/:inventoryId", requireAuth, (req: AuthRequest, res) => {
-  const inventoryId = parseInt(req.params["inventoryId"]!, 10);
+  const inventoryId = parseInt(String(req.params["inventoryId"]), 10);
   if (isNaN(inventoryId)) {
     res.status(400).json({ error: "Invalid inventory id" });
     return;
