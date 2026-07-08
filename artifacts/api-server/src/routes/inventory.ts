@@ -76,8 +76,8 @@ router.get("/players", requireAuth, (req: AuthRequest, res) => {
 // ─── GET /api/inventory/summary ───────────────────────────────────────────────
 router.get("/summary", requireAuth, (req: AuthRequest, res) => {
   const user = db
-    .prepare("SELECT coins FROM users WHERE id=?")
-    .get(req.userId!) as { coins: number } | undefined;
+    .prepare("SELECT coins, last_daily_claim FROM users WHERE id=?")
+    .get(req.userId!) as { coins: number; last_daily_claim: string | null } | undefined;
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
 
   const counts = db
@@ -92,11 +92,13 @@ router.get("/summary", requireAuth, (req: AuthRequest, res) => {
     `)
     .get(req.userId!) as { total: number; goalkeepers: number; shooters: number };
 
+  const todayUtc = new Date().toISOString().slice(0, 10);
   res.json({
-    coins:       user.coins,
-    total_cards: counts.total,
-    goalkeepers: counts.goalkeepers,
-    shooters:    counts.shooters,
+    coins:             user.coins,
+    total_cards:       counts.total,
+    goalkeepers:       counts.goalkeepers,
+    shooters:          counts.shooters,
+    daily_claimed:     user.last_daily_claim === todayUtc,
   });
 });
 

@@ -86,30 +86,32 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Daily claim */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.35 }}
-        className="flex items-center justify-between p-5 rounded-2xl border border-yellow-500/30 bg-yellow-500/5"
-      >
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-yellow-500/20 flex items-center justify-center">
-            <Gift size={20} className="text-yellow-400" />
-          </div>
-          <div>
-            <div className="font-bold">Daily Reward</div>
-            <div className="text-sm text-muted-foreground">Claim +200 coins once per day</div>
-          </div>
-        </div>
-        <Button
-          onClick={handleClaim}
-          disabled={claimMutation.isPending}
-          className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold"
+      {/* Daily claim — hidden once claimed */}
+      {!summary?.daily_claimed && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="flex items-center justify-between p-5 rounded-2xl border border-yellow-500/30 bg-yellow-500/5"
         >
-          {claimMutation.isPending ? "Claiming…" : "Claim 🪙"}
-        </Button>
-      </motion.div>
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-yellow-500/20 flex items-center justify-center">
+              <Gift size={20} className="text-yellow-400" />
+            </div>
+            <div>
+              <div className="font-bold">Daily Reward</div>
+              <div className="text-sm text-muted-foreground">Claim +200 coins once per day</div>
+            </div>
+          </div>
+          <Button
+            onClick={handleClaim}
+            disabled={claimMutation.isPending}
+            className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold"
+          >
+            {claimMutation.isPending ? "Claiming…" : "Claim 🪙"}
+          </Button>
+        </motion.div>
+      )}
 
       {/* Quick nav cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

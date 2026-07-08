@@ -78,6 +78,7 @@ export interface InventorySummary {
   total_cards: number;
   goalkeepers: number;
   shooters: number;
+  daily_claimed: boolean;
 }
 
 export interface ExchangeResult {
