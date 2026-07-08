@@ -78,6 +78,15 @@ export const LogoutResponse = zod.object({
 
 
 /**
+ * @summary Permanently delete your account and free up your username
+ */
+export const DeleteAccountResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string().optional()
+})
+
+
+/**
  * @summary Claim daily coin reward (200 coins, once per day)
  */
 export const DailyClaimResponse = zod.object({
@@ -126,7 +135,8 @@ export const GetInventorySummaryResponse = zod.object({
   "coins": zod.number(),
   "total_cards": zod.number(),
   "goalkeepers": zod.number(),
-  "shooters": zod.number()
+  "shooters": zod.number(),
+  "daily_claimed": zod.boolean().describe('Whether the daily reward has already been claimed today')
 })
 
 

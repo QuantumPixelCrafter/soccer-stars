@@ -131,7 +131,66 @@
 }
 
 .dark {
-  /* same as :root because we force dark theme */
+  /* same as :root — dark is the default palette */
+}
+
+/* ─── Light Theme ─────────────────────────────────────────────────────────── */
+.light {
+  --button-outline: rgba(0, 0, 0, 0.08);
+  --badge-outline: rgba(0, 0, 0, 0.04);
+  --opaque-button-border-intensity: 3;
+  --elevate-1: rgba(0, 0, 0, 0.02);
+  --elevate-2: rgba(0, 0, 0, 0.05);
+
+  --background: 220 25% 96%;
+  --foreground: 225 55% 8%;
+
+  --border: 220 18% 84%;
+  --input: 220 18% 84%;
+  --ring: 43 100% 50%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 225 55% 8%;
+  --card-border: 220 18% 84%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 225 55% 8%;
+  --popover-border: 220 18% 84%;
+
+  --primary: 43 100% 48%;
+  --primary-foreground: 225 60% 5%;
+  --primary-border: 43 100% 38%;
+
+  --secondary: 150 60% 36%;
+  --secondary-foreground: 0 0% 100%;
+  --secondary-border: 150 60% 28%;
+
+  --muted: 220 18% 90%;
+  --muted-foreground: 220 14% 42%;
+  --muted-border: 220 18% 82%;
+
+  --accent: 220 18% 90%;
+  --accent-foreground: 225 55% 8%;
+  --accent-border: 220 18% 82%;
+
+  --destructive: 0 80% 52%;
+  --destructive-foreground: 0 0% 100%;
+  --destructive-border: 0 80% 44%;
+
+  --chart-1: 43 100% 48%;
+  --chart-2: 150 60% 36%;
+  --chart-3: 200 85% 48%;
+  --chart-4: 280 70% 52%;
+  --chart-5: 340 72% 52%;
+
+  --shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.08);
+  --shadow-xs:  0px 1px 2px 0px hsl(0 0% 0% / 0.08);
+  --shadow-sm:  0px 1px 2px 0px hsl(0 0% 0% / 0.08), 0px 1px 3px -1px hsl(0 0% 0% / 0.08);
+  --shadow:     0px 1px 2px 0px hsl(0 0% 0% / 0.08), 0px 1px 3px -1px hsl(0 0% 0% / 0.08);
+  --shadow-md:  0px 1px 3px 0px hsl(0 0% 0% / 0.10), 0px 2px 4px -1px hsl(0 0% 0% / 0.10);
+  --shadow-lg:  0px 2px 4px 0px hsl(0 0% 0% / 0.10), 0px 4px 6px -1px hsl(0 0% 0% / 0.10);
+  --shadow-xl:  0px 2px 4px 0px hsl(0 0% 0% / 0.10), 0px 8px 10px -1px hsl(0 0% 0% / 0.10);
+  --shadow-2xl: 0px 4px 8px 0px hsl(0 0% 0% / 0.12);
 }
 
 @layer base {

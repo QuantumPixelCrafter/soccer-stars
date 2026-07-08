@@ -98,6 +98,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
 
+  /auth/account:
+    delete:
+      operationId: deleteAccount
+      tags: [auth]
+      summary: Permanently delete your account and free up your username
+      responses:
+        "200":
+          description: Account deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /auth/daily-claim:
     post:
       operationId: dailyClaim
@@ -558,7 +577,7 @@ components:
 
     InventorySummary:
       type: object
-      required: [coins, total_cards, goalkeepers, shooters]
+      required: [coins, total_cards, goalkeepers, shooters, daily_claimed]
       properties:
         coins:
           type: integer
@@ -568,6 +587,9 @@ components:
           type: integer
         shooters:
           type: integer
+        daily_claimed:
+          type: boolean
+          description: Whether the daily reward has already been claimed today
 
     PlayerCard:
       type: object

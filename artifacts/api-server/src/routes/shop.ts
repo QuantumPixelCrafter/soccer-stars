@@ -12,7 +12,7 @@ router.use(requireAuth);
 // ─── Pack definitions ─────────────────────────────────────────────────────────
 
 const PACK_CONFIG = {
-  starter:   { count: 11, cost: 0,   pool: "bench",   label: "Free Starter Pack (11 Cards)", desc: "Claim your starting squad of 11 bench players — free for every new manager!" },
+  starter:   { count: 11, cost: 0,   pool: "bench",   label: "Free Starter Pack (11 Cards)", desc: "Claim your starting squad of 11 players — free for every new manager!" },
   random_1:  { count: 1, cost: 500,  pool: "mixed",   label: "Random Pack (1 Card)",  desc: "One surprise Gold Card from the full pool." },
   random_3:  { count: 3, cost: 1200, pool: "mixed",   label: "Random Pack (3 Cards)", desc: "Three surprise Gold Cards from the full pool." },
   shooter_1: { count: 1, cost: 700,  pool: "shooter", label: "Striker Pack (1 Card)", desc: "One shooter guaranteed — no GKs." },
@@ -24,14 +24,25 @@ const PACK_CONFIG = {
 type PackType = keyof typeof PACK_CONFIG;
 
 // ─── GET /api/shop/packs ──────────────────────────────────────────────────────
-router.get("/packs", (_req, res) => {
-  const packs = Object.entries(PACK_CONFIG).map(([id, cfg]) => ({
-    id,
-    name:        cfg.label,
-    description: cfg.desc,
-    cost:        cfg.cost,
-    card_count:  cfg.count,
-  }));
+// Filters out the starter pack for users who have already claimed it.
+router.get("/packs", (req: AuthRequest, res) => {
+  const userId = req.userId!;
+  const user = db
+    .prepare("SELECT has_starter_pack FROM users WHERE id=?")
+    .get(userId) as { has_starter_pack: number } | undefined;
+
+  const starterClaimed = !!(user?.has_starter_pack);
+
+  const packs = Object.entries(PACK_CONFIG)
+    .filter(([id]) => !(id === "starter" && starterClaimed))
+    .map(([id, cfg]) => ({
+      id,
+      name:        cfg.label,
+      description: cfg.desc,
+      cost:        cfg.cost,
+      card_count:  cfg.count,
+    }));
+
   res.json(packs);
 });
 
@@ -50,12 +61,14 @@ router.post("/buy", (req: AuthRequest, res) => {
   // Fetch eligible pool (Gold Cards only — is_bench_pool=0)
   let poolQuery: string;
   if (pack.pool === "shooter") {
+    // All outfield Gold cards (ST, LW, RW, CB, RB, LB, CM, CAM, CDM — no GKs)
     poolQuery = "SELECT * FROM players_base WHERE is_gk=0 AND is_bench_pool=0";
   } else if (pack.pool === "gk") {
     poolQuery = "SELECT * FROM players_base WHERE is_gk=1 AND is_bench_pool=0";
   } else if (pack.pool === "bench") {
     poolQuery = "SELECT * FROM players_base WHERE is_bench_pool=1";
   } else {
+    // mixed: entire Gold pool (all positions including GK)
     poolQuery = "SELECT * FROM players_base WHERE is_bench_pool=0";
   }
 
@@ -85,34 +98,37 @@ router.post("/buy", (req: AuthRequest, res) => {
 
     const drawn = pickRandomN(pool, pack.count);
     const insertInv = db.prepare("INSERT INTO user_inventory (user_id, player_id) VALUES (?,?)");
+    const insertedIds: number[] = [];
     const duplicateInventoryIds: number[] = [];
 
     for (const card of drawn) {
       const result = insertInv.run(userId, card.id);
       const inventoryId = result.lastInsertRowid as number;
+      insertedIds.push(inventoryId);
       if (preOwnedIds.has(card.id)) {
         duplicateInventoryIds.push(inventoryId);
       }
     }
 
-    return { newCoins, drawn, duplicateInventoryIds };
+    return { newCoins, drawn, insertedIds, duplicateInventoryIds };
   });
 
   try {
-    const { newCoins, drawn, duplicateInventoryIds } = buyTx();
+    const { newCoins, insertedIds, duplicateInventoryIds } = buyTx();
 
-    // Fetch the full inventory records for the drawn cards (with inventory_id)
+    // Re-query by the exact inserted inventory IDs to avoid time-window races
+    const placeholders = insertedIds.map(() => "?").join(",");
     const inventoryRows = db
       .prepare(`
         SELECT ui.id AS inventory_id, pb.*, ui.is_listed, ui.acquired_at
         FROM user_inventory ui
         JOIN players_base pb ON ui.player_id=pb.id
-        WHERE ui.user_id=? AND ui.acquired_at >= datetime('now', '-5 seconds')
-        ORDER BY ui.id DESC LIMIT ?
+        WHERE ui.id IN (${placeholders})
+        ORDER BY ui.id ASC
       `)
-      .all(userId, pack.count) as Array<PlayerBaseRow & { inventory_id: number; is_listed: number; acquired_at: string }>;
+      .all(...insertedIds) as Array<PlayerBaseRow & { inventory_id: number; is_listed: number; acquired_at: string }>;
 
-    const players = inventoryRows.reverse().map((r) => ({
+    const players = inventoryRows.map((r) => ({
       id:                r.id,
       inventory_id:      r.inventory_id,
       name:              r.name,

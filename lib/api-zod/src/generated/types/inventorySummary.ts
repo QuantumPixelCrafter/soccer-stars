@@ -11,4 +11,6 @@ export interface InventorySummary {
   total_cards: number;
   goalkeepers: number;
   shooters: number;
+  /** Whether the daily reward has already been claimed today */
+  daily_claimed: boolean;
 }

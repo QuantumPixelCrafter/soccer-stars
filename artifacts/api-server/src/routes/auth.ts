@@ -23,15 +23,10 @@ function todayISO(): string {
 
 // ─── Starter Pack ─────────────────────────────────────────────────────────────
 
-const MID_ROLL_OPTIONS: Array<{ positions: string[]; counts: number[] }> = [
-  { positions: ["CM"],         counts: [2] },   // 2 CM
-  { positions: ["CDM"],        counts: [2] },   // 2 CDM
-  { positions: ["CM", "CAM"], counts: [1, 1] }, // 1 CM + 1 CAM
-];
-
 /**
  * Grants a position-perfect 11-card starter pack atomically.
- * Draws from the bench pool exclusively.
+ * Composition: 1 GK (silver) + 9 silver outfield + 1 Gold ST = 11 cards total.
+ * Silver = bench pool. Gold = main Gold pool.
  * Must be called inside a db.transaction.
  */
 function grantStarterPack(userId: number): void {
@@ -39,7 +34,8 @@ function grantStarterPack(userId: number): void {
     "INSERT INTO user_inventory (user_id, player_id) VALUES (?,?)",
   );
 
-  function drawFromPool(tacticalPos: string, limit: number): number[] {
+  /** Draw from the bench (silver) pool for a given tactical position. */
+  function drawSilver(tacticalPos: string, limit: number): number[] {
     const rows = db
       .prepare(
         `SELECT id FROM players_base
@@ -50,29 +46,61 @@ function grantStarterPack(userId: number): void {
     return rows.map((r) => r.id);
   }
 
-  const playerIds: number[] = [];
-
-  // Fixed slots
-  playerIds.push(...drawFromPool("GK",  1));
-  playerIds.push(...drawFromPool("CB",  2));
-  playerIds.push(...drawFromPool("RB",  1));
-  playerIds.push(...drawFromPool("LB",  1));
-  playerIds.push(...drawFromPool("ST",  1));
-  playerIds.push(...drawFromPool("RW",  1));
-  playerIds.push(...drawFromPool("LW",  1));
-
-  // Midfield dynamic mix
-  const roll = MID_ROLL_OPTIONS[Math.floor(Math.random() * MID_ROLL_OPTIONS.length)]!;
-  for (let i = 0; i < roll.positions.length; i++) {
-    playerIds.push(...drawFromPool(roll.positions[i]!, roll.counts[i]!));
+  /** Draw from the main Gold pool for a given tactical position. */
+  function drawGold(tacticalPos: string, limit: number): number[] {
+    const rows = db
+      .prepare(
+        `SELECT id FROM players_base
+         WHERE is_bench_pool=0 AND is_gk=0 AND tactical_position=?
+         ORDER BY RANDOM() LIMIT ?`,
+      )
+      .all(tacticalPos, limit) as Array<{ id: number }>;
+    return rows.map((r) => r.id);
   }
 
-  // Insert all into inventory (should always be 11, but guard gracefully)
+  /** Draw 2 midfielders from any mix of CM / CDM / CAM bench pool players. */
+  function drawSilverMids(): number[] {
+    const rows = db
+      .prepare(
+        `SELECT id FROM players_base
+         WHERE is_bench_pool=1 AND tactical_position IN ('CM','CDM','CAM')
+         ORDER BY RANDOM() LIMIT 2`,
+      )
+      .all() as Array<{ id: number }>;
+    return rows.map((r) => r.id);
+  }
+
+  const playerIds: number[] = [];
+
+  // Silver slots (bench pool)
+  playerIds.push(...drawSilver("GK", 1));   // 1 GK
+  playerIds.push(...drawSilver("CB", 2));   // 2 CB
+  playerIds.push(...drawSilver("RB", 1));   // 1 RB
+  playerIds.push(...drawSilver("LB", 1));   // 1 LB
+  playerIds.push(...drawSilver("CM", 1));   // 1 CM
+  playerIds.push(...drawSilver("RW", 1));   // 1 RW
+  playerIds.push(...drawSilver("LW", 1));   // 1 LW
+  playerIds.push(...drawSilverMids());       // 2 from CM/CDM/CAM mix
+
+  // Gold slot (main Gold pool)
+  const goldST = drawGold("ST", 1);
+  playerIds.push(...goldST);                // 1 Gold ST
+
+  // Guard: ensure exactly 11 cards were drawn before committing
+  const expectedCards = 11;
+  if (playerIds.length !== expectedCards) {
+    throw new Error(
+      `STARTER_PACK_INCOMPLETE: expected ${expectedCards} cards, got ${playerIds.length}. ` +
+      `Check that the bench pool and Gold pool are seeded.`,
+    );
+  }
+
+  // Insert all into inventory (11 total: 10 silver + 1 gold)
   for (const playerId of playerIds) {
     insertInv.run(userId, playerId);
   }
 
-  logger.info({ userId, cards: playerIds.length, midMix: roll.positions }, "Starter pack granted");
+  logger.info({ userId, cards: playerIds.length, goldCards: goldST.length }, "Starter pack granted (1 Gold ST + 10 Silver)");
 
   db.prepare("UPDATE users SET has_starter_pack=1 WHERE id=?").run(userId);
 }
@@ -135,7 +163,7 @@ router.post("/register", (req, res) => {
     .prepare(`
       SELECT ui.id AS inventory_id, pb.name, pb.initials, pb.overall,
              pb.tactical_position, pb.is_gk, pb.fk, pb.pk, pb.fks, pb.pks,
-             pb.club, pb.country
+             pb.club, pb.country, pb.is_bench_pool
       FROM user_inventory ui
       JOIN players_base pb ON ui.player_id = pb.id
       WHERE ui.user_id=?
@@ -229,6 +257,54 @@ router.post("/daily-claim", requireAuth, (req: AuthRequest, res) => {
   emitToUser(user.id, "coins:updated", { coins: newCoins, reason: "daily_claim" });
 
   res.json({ awarded: DAILY_COINS, coins: newCoins });
+});
+
+// ─── DELETE /api/auth/account ─────────────────────────────────────────────────
+
+router.delete("/account", requireAuth, (req: AuthRequest, res) => {
+  const userId = req.userId!;
+
+  const deleteTx = db.transaction(() => {
+    // ── 1. Active listings where this user is the SELLER ───────────────────────
+    //    seller_id is NOT NULL, so we must DELETE these rows (SET NULL is invalid).
+    //    First refund any current bidders on active auctions.
+    const activeSellerListings = db
+      .prepare(
+        "SELECT current_bidder_id, current_bid FROM market_listings WHERE seller_id=? AND resolved=0",
+      )
+      .all(userId) as Array<{ current_bidder_id: number | null; current_bid: number }>;
+
+    for (const row of activeSellerListings) {
+      if (row.current_bidder_id) {
+        db.prepare("UPDATE users SET coins=coins+? WHERE id=?")
+          .run(row.current_bid, row.current_bidder_id);
+      }
+    }
+
+    // Unmark seller's listed inventory items (inventory cascade-deletes with user, but good hygiene)
+    db.prepare("UPDATE user_inventory SET is_listed=0 WHERE user_id=? AND is_listed=1").run(userId);
+
+    // Delete ALL market_listings rows where user is seller (active + historical)
+    db.prepare("DELETE FROM market_listings WHERE seller_id=?").run(userId);
+
+    // ── 2. Listings where this user is the BIDDER (active or historical) ───────
+    //    User's coins are already gone when they bid; since the account is being deleted
+    //    we drop their bidder reference and reset to the listing's starting price.
+    db.prepare(
+      "UPDATE market_listings SET current_bidder_id=NULL, current_bid=starting_bid WHERE current_bidder_id=?",
+    ).run(userId);
+
+    // ── 3. Delete user — CASCADE handles sessions, user_inventory, user_squads, squad_slots ─
+    db.prepare("DELETE FROM users WHERE id=?").run(userId);
+  });
+
+  try {
+    deleteTx();
+    res.json({ success: true, message: "Account deleted successfully." });
+  } catch (err) {
+    logger.error({ err }, "Failed to delete account");
+    res.status(500).json({ error: "Failed to delete account" });
+  }
 });
 
 export default router;
